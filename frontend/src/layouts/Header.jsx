@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Bell, ShieldCheck, AlertCircle, RefreshCw } from 'lucide-react';
+import { Bell, ShieldCheck, AlertCircle, RefreshCw, Home, ChevronRight } from 'lucide-react';
 import { api } from '../api/client';
 import './Header.css';
 
 const ROUTE_LABELS = {
-  '/': 'Security Overview',
-  '/users': 'User Directory',
+  '/': 'Security Operations Overview',
+  '/users': 'Entity Intelligence & User Directory',
   '/alerts': 'Alert Investigation Queue',
-  '/models': 'Models & Evaluation Metrics',
-  '/system': 'System & Data Status',
+  '/models': 'Detection Models & Evaluation Matrix',
+  '/system': 'Infrastructure & Dataset Status',
 };
 
 export function Header() {
@@ -48,26 +48,26 @@ export function Header() {
     return () => clearInterval(interval);
   }, []);
 
-  // Determine breadcrumbs
   const pathParts = location.pathname.split('/').filter(Boolean);
   const isUserDetail = pathParts.length === 2 && pathParts[0] === 'users';
   const currentTitle = isUserDetail
-    ? `User Investigation: ${pathParts[1]}`
+    ? `User Dossier: ${pathParts[1]}`
     : ROUTE_LABELS[location.pathname] || 'Analytics';
 
   return (
     <header className="app-header">
       <div className="header-breadcrumbs">
-        <Link to="/" className="breadcrumb-root">
-          UEBA
+        <Link to="/" className="breadcrumb-root" title="UEBA Sentinel Home">
+          <Home size={14} />
+          <span>UEBA</span>
         </Link>
-        <span className="breadcrumb-separator">/</span>
+        <ChevronRight size={12} className="breadcrumb-separator" />
         {isUserDetail ? (
           <>
             <Link to="/users" className="breadcrumb-link">
-              Users
+              Entities
             </Link>
-            <span className="breadcrumb-separator">/</span>
+            <ChevronRight size={12} className="breadcrumb-separator" />
             <span className="breadcrumb-current font-mono">{pathParts[1]}</span>
           </>
         ) : (
@@ -76,19 +76,19 @@ export function Header() {
       </div>
 
       <div className="header-actions">
-        {/* System Health Pill */}
-        <Link to="/system" className="health-indicator-pill" title="Database & backend operational status">
+        {/* Environment / System Health Pill */}
+        <Link to="/system" className="health-indicator-pill" title="Backend API & Persistence Status">
           <span
             className={`health-dot ${
               health.status === 'ok' ? 'health-dot-ok' : 'health-dot-error'
             }`}
           />
-          <span className="health-label">
-            {health.status === 'ok' ? 'API Online' : 'Connecting...'}
+          <span className="health-label font-mono">
+            {health.status === 'ok' ? 'API 1.0 &bull; LIVE' : 'CONNECTING'}
           </span>
         </Link>
 
-        {/* Real Alert Indicator */}
+        {/* Real Alert Notification Indicator */}
         <Link
           to="/alerts"
           className="header-alerts-btn"

@@ -4,8 +4,8 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 48px 24px;
-  background: var(--bg-card);
+  padding: 56px 24px;
+  background: var(--bg-surface);
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-md);
   margin: 16px 0;
@@ -15,11 +15,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-inset);
+  border: 1px solid var(--border-default);
   margin-bottom: 14px;
 }
 
@@ -36,8 +36,8 @@
 
 .empty-state-description {
   font-size: 13px;
-  color: var(--text-secondary);
-  max-width: 440px;
+  color: var(--text-muted);
+  max-width: 460px;
   line-height: 1.5;
   margin-bottom: 16px;
 }

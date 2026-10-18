@@ -13,6 +13,8 @@ import {
   ChevronRight,
   ExternalLink,
   Save,
+  X,
+  FileCode,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
@@ -41,7 +43,7 @@ export function AlertsPage() {
   const [severity, setSeverity] = useState(initialSeverity);
   const [status, setStatus] = useState(initialStatus);
   const [searchInput, setSearchInput] = useState(initialSearch);
-  const debouncedSearch = useDebounce(searchInput, 300);
+  const debouncedSearch = useDebounce(searchInput, 280);
   const [page, setPage] = useState(initialPage);
 
   const [data, setData] = useState(null);
@@ -56,7 +58,7 @@ export function AlertsPage() {
   const [updateSuccess, setUpdateSuccess] = useState(null);
   const [updateError, setUpdateError] = useState(null);
 
-  // Sync to URL query params
+  // Sync to URL parameters
   useEffect(() => {
     const params = new URLSearchParams();
     if (severity) params.set('severity', severity);
@@ -79,7 +81,7 @@ export function AlertsPage() {
       });
       setData(res);
     } catch (err) {
-      setError(err.message || 'Failed to retrieve alert records.');
+      setError(err.message || 'Failed to retrieve security incident queue.');
     } finally {
       setLoading(false);
     }
@@ -118,11 +120,9 @@ export function AlertsPage() {
       });
       setSelectedAlert(updated);
       setUpdateSuccess(`Status successfully persisted to ${updated.status}.`);
-
-      // Refresh list to update badge and timestamps
       fetchAlerts();
     } catch (err) {
-      setUpdateError(err.message || 'Failed to update alert status.');
+      setUpdateError(err.message || 'Failed to persist status changes.');
     } finally {
       setIsUpdating(false);
     }
@@ -137,27 +137,27 @@ export function AlertsPage() {
 
   return (
     <div className="alerts-page">
-      <div className="alerts-header">
+      <div className="page-header">
         <div>
-          <h1 className="alerts-title">Security Alert Investigation Queue</h1>
-          <p className="alerts-subtitle">
-            Prioritized incidents generated from ML threat scoring, ANN reconstruction anomalies, and behavioral baselines.
+          <h1 className="page-title">Security Alert Investigation Queue</h1>
+          <p className="page-subtitle">
+            Prioritized incidents generated from ML threat scoring, ANN reconstruction anomalies, and personal baseline deviations.
           </p>
         </div>
 
-        <div className="alerts-count-tag">
-          <ShieldAlert size={14} />
+        <div className="alerts-count-tag font-mono">
+          <ShieldAlert size={14} className="text-amber" />
           <span>{data?.total ?? 0} Recorded Incidents</span>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
       <div className="card alerts-filter-bar">
-        <div className="search-input-wrapper">
-          <Search size={16} className="search-icon" />
+        <div className="search-box">
+          <Search size={15} className="search-icon text-muted" />
           <input
             type="text"
-            className="search-input"
+            className="search-field"
             placeholder="Search by User ID, employee name, or incident reason..."
             value={searchInput}
             onChange={(e) => {
@@ -165,11 +165,23 @@ export function AlertsPage() {
               setPage(1);
             }}
           />
+          {searchInput && (
+            <button
+              type="button"
+              className="clear-search-btn"
+              onClick={() => {
+                setSearchInput('');
+                setPage(1);
+              }}
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
-        <div className="filter-controls">
+        <div className="filter-dropdowns">
           <select
-            className="filter-select"
+            className="styled-select"
             value={severity}
             onChange={(e) => {
               setSeverity(e.target.value);
@@ -184,7 +196,7 @@ export function AlertsPage() {
           </select>
 
           <select
-            className="filter-select"
+            className="styled-select"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
@@ -209,34 +221,34 @@ export function AlertsPage() {
       {error && <ErrorAlert message={error} onRetry={fetchAlerts} />}
 
       {loading ? (
-        <LoadingSpinner message="Querying incident queue..." />
+        <LoadingSpinner message="Querying incident database..." />
       ) : !data || data.items.length === 0 ? (
         <EmptyState
           icon={ShieldAlert}
-          title={severity || status || searchInput ? 'No Matching Alerts' : 'No Security Alerts'}
+          title={severity || status || searchInput ? 'No Matching Incidents Found' : 'Incident Queue Empty'}
           description={
             severity || status || searchInput
-              ? 'No alerts match your filter parameters.'
+              ? 'No security alerts match your selected filters.'
               : 'No alerts have been generated. Alerts are automatically triggered when hybrid threat scores or anomaly reconstruction errors exceed calibrated thresholds.'
           }
-          actionLabel={severity || status || searchInput ? 'Reset Filters' : 'View Models'}
+          actionLabel={severity || status || searchInput ? 'Reset Filters' : 'Inspect Models'}
           onAction={severity || status || searchInput ? clearFilters : () => navigate('/models')}
         />
       ) : (
         <div className="card alerts-table-card">
           <div className="table-responsive">
-            <table className="alerts-table">
+            <table className="compact-table">
               <thead>
                 <tr>
                   <th>Severity</th>
                   <th>Incident ID</th>
-                  <th>User ID</th>
+                  <th>Entity ID</th>
                   <th>Employee</th>
                   <th>Reason</th>
                   <th>Risk Score</th>
                   <th>Detected At</th>
                   <th>Status</th>
-                  <th>Action</th>
+                  <th>Triage</th>
                 </tr>
               </thead>
               <tbody>
@@ -252,12 +264,12 @@ export function AlertsPage() {
                       </span>
                     </td>
                     <td className="font-mono text-muted">#{alert.id}</td>
-                    <td className="font-mono font-bold">{alert.user_id}</td>
+                    <td className="font-mono font-bold text-primary">{alert.user_id}</td>
                     <td>{alert.employee_name || '—'}</td>
-                    <td className="reason-cell" title={alert.reason}>
+                    <td className="cell-reason" title={alert.reason}>
                       {alert.reason}
                     </td>
-                    <td className="font-mono">{formatRiskScore(alert.risk_score)}</td>
+                    <td className="font-mono font-bold">{formatRiskScore(alert.risk_score)}</td>
                     <td className="text-muted">{formatDateTime(alert.detected_at)}</td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(alert.status)}`}>
@@ -273,7 +285,7 @@ export function AlertsPage() {
                           openAlertModal(alert);
                         }}
                       >
-                        Triage
+                        Inspect
                       </button>
                     </td>
                   </tr>
@@ -284,20 +296,23 @@ export function AlertsPage() {
 
           {/* Pagination */}
           {data.total_pages > 1 && (
-            <div className="pagination-footer">
-              <span className="pagination-info text-muted">
-                Page {data.page} of {data.total_pages} ({data.total} total alerts)
+            <div className="pagination-bar">
+              <span className="pagination-text text-muted font-mono">
+                Showing {((data.page - 1) * data.page_size) + 1} &ndash; {Math.min(data.page * data.page_size, data.total)} of {data.total} incidents
               </span>
-              <div className="pagination-buttons">
+              <div className="pagination-controls">
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  <ChevronLeft size={14} />
+                  <ChevronLeft size={13} />
                   <span>Previous</span>
                 </button>
+                <span className="page-indicator font-mono">
+                  {data.page} / {data.total_pages}
+                </span>
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
@@ -305,7 +320,7 @@ export function AlertsPage() {
                   onClick={() => setPage((p) => p + 1)}
                 >
                   <span>Next</span>
-                  <ChevronRight size={14} />
+                  <ChevronRight size={13} />
                 </button>
               </div>
             </div>
@@ -313,17 +328,17 @@ export function AlertsPage() {
         </div>
       )}
 
-      {/* Alert Investigation & Triage Modal */}
+      {/* Incident Dossier & Triage Modal */}
       <Modal
         isOpen={Boolean(selectedAlert)}
         onClose={closeAlertModal}
-        title={`Incident Dossier #${selectedAlert?.id}`}
-        maxWidth={680}
+        title={`Security Incident Dossier #${selectedAlert?.id}`}
+        maxWidth={660}
       >
         {selectedAlert && (
           <div className="alert-modal-content">
-            <div className="modal-incident-header">
-              <div className="modal-header-badges">
+            <div className="modal-header-strip">
+              <div className="modal-badges">
                 <span className={`badge ${getSeverityBadgeClass(selectedAlert.severity)}`}>
                   {selectedAlert.severity} Severity
                 </span>
@@ -331,87 +346,92 @@ export function AlertsPage() {
                   Status: {selectedAlert.status}
                 </span>
               </div>
-              <span className="font-mono text-muted">Date: {formatDate(selectedAlert.date)}</span>
+              <span className="font-mono text-muted font-medium">
+                Detected: {formatDate(selectedAlert.date)}
+              </span>
             </div>
 
-            <h4 className="incident-reason">{selectedAlert.reason}</h4>
+            <h4 className="incident-title">{selectedAlert.reason}</h4>
 
-            {/* Entity Context */}
-            <div className="modal-context-box">
-              <div className="context-item">
-                <span className="context-label">Target Entity:</span>
+            {/* Target Entity Box */}
+            <div className="target-entity-box">
+              <div className="target-cell">
+                <span className="target-label">Target Entity</span>
                 <Link
                   to={`/users/${selectedAlert.user_id}`}
-                  className="context-link font-mono"
+                  className="target-link font-mono"
                   onClick={closeAlertModal}
                 >
                   <span>{selectedAlert.user_id}</span>
                   <ExternalLink size={12} />
                 </Link>
               </div>
-              <div className="context-item">
-                <span className="context-label">Employee:</span>
-                <span>{selectedAlert.employee_name || '—'}</span>
+              <div className="target-cell">
+                <span className="target-label">Employee</span>
+                <span className="target-val">{selectedAlert.employee_name || '—'}</span>
               </div>
-              <div className="context-item">
-                <span className="context-label">Department:</span>
-                <span>{selectedAlert.department || '—'}</span>
+              <div className="target-cell">
+                <span className="target-label">Department</span>
+                <span className="target-val">{selectedAlert.department || '—'}</span>
               </div>
-              <div className="context-item">
-                <span className="context-label">Assessed Risk:</span>
-                <span className="font-mono font-bold">
+              <div className="target-cell">
+                <span className="target-label">Threat Score</span>
+                <span className="target-val font-mono font-bold">
                   {formatRiskScore(selectedAlert.risk_score)}/100
                 </span>
               </div>
             </div>
 
-            {/* Evidence Payload */}
+            {/* Telemetry Evidence JSON */}
             {selectedAlert.evidence && (
-              <div className="evidence-section">
-                <h5 className="evidence-heading">Detection Evidence & Telemetry Signals</h5>
-                <pre className="evidence-json-block font-mono">
+              <div className="evidence-box">
+                <div className="evidence-header">
+                  <FileCode size={14} className="text-teal" />
+                  <span className="evidence-label">Detection Evidence & Trigger Traces</span>
+                </div>
+                <pre className="evidence-code font-mono">
                   {JSON.stringify(selectedAlert.evidence, null, 2)}
                 </pre>
               </div>
             )}
 
-            {/* Persistent Status Update Form */}
-            <form onSubmit={handleUpdateStatus} className="status-update-form">
-              <h5 className="evidence-heading">Analyst Triage & Status Update</h5>
+            {/* Triage Update Form */}
+            <form onSubmit={handleUpdateStatus} className="triage-form">
+              <h5 className="triage-title">SOC Analyst Triage & Incident Resolution</h5>
 
               {updateSuccess && (
-                <div className="status-feedback success-feedback">{updateSuccess}</div>
+                <div className="form-feedback feedback-success">{updateSuccess}</div>
               )}
               {updateError && (
-                <div className="status-feedback error-feedback">{updateError}</div>
+                <div className="form-feedback feedback-error">{updateError}</div>
               )}
 
-              <div className="form-group">
-                <label className="form-label">Investigation Status:</label>
+              <div className="form-row">
+                <label className="form-field-label">Investigation Disposition:</label>
                 <select
-                  className="form-select"
+                  className="form-field-select"
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value)}
                 >
-                  <option value="OPEN">OPEN — Awaiting Triage</option>
-                  <option value="INVESTIGATING">INVESTIGATING — SOC Analyst Active</option>
-                  <option value="RESOLVED">RESOLVED — Incident Closed</option>
-                  <option value="DISMISSED">DISMISSED — Benign / False Positive</option>
+                  <option value="OPEN">OPEN &bull; Awaiting Initial Triage</option>
+                  <option value="INVESTIGATING">INVESTIGATING &bull; In Active SOC Review</option>
+                  <option value="RESOLVED">RESOLVED &bull; Incident Remediated & Closed</option>
+                  <option value="DISMISSED">DISMISSED &bull; Benign / False Positive</option>
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Analyst Case Notes:</label>
+              <div className="form-row">
+                <label className="form-field-label">Analyst Case Notes:</label>
                 <textarea
-                  className="form-textarea"
+                  className="form-field-textarea"
                   rows={3}
-                  placeholder="Record SOC rationale, employee interviews, or remediation actions..."
+                  placeholder="Record SOC rationale, remediation steps, or verification findings..."
                   value={statusNotes}
                   onChange={(e) => setStatusNotes(e.target.value)}
                 />
               </div>
 
-              <div className="form-actions">
+              <div className="form-actions-row">
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
@@ -424,8 +444,8 @@ export function AlertsPage() {
                   className="btn btn-primary btn-sm"
                   disabled={isUpdating}
                 >
-                  <Save size={14} />
-                  <span>{isUpdating ? 'Persisting...' : 'Save & Persist Status'}</span>
+                  <Save size={13} />
+                  <span>{isUpdating ? 'Saving...' : 'Persist Status Update'}</span>
                 </button>
               </div>
             </form>

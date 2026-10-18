@@ -10,15 +10,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
+  FileSearch,
 } from 'lucide-react';
 import './Sidebar.css';
 
 const NAV_ITEMS = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/users', label: 'Users', icon: Users },
+  { path: '/', label: 'Overview', icon: LayoutDashboard },
+  { path: '/users', label: 'Entities & Users', icon: Users },
   { path: '/alerts', label: 'Alert Queue', icon: ShieldAlert },
   { path: '/models', label: 'Models & Evaluation', icon: Cpu },
-  { path: '/system', label: 'System & Data', icon: Activity },
+  { path: '/system', label: 'System & Ingestion', icon: Activity },
 ];
 
 export function Sidebar({ collapsed, onToggle }) {
@@ -30,14 +31,18 @@ export function Sidebar({ collapsed, onToggle }) {
     >
       <div className="sidebar-brand">
         <div className="brand-icon-wrapper">
-          <Shield size={20} className="brand-icon" />
+          <Shield size={19} className="brand-icon" />
         </div>
         {!collapsed && (
           <div className="brand-text">
-            <span className="brand-name">UEBA Security</span>
-            <span className="brand-tag">Insider Threat</span>
+            <span className="brand-name">UEBA Sentinel</span>
+            <span className="brand-tag">Insider Threat Intelligence</span>
           </div>
         )}
+      </div>
+
+      <div className="sidebar-section-label">
+        {!collapsed && <span>OPERATIONS</span>}
       </div>
 
       <nav className="sidebar-nav" aria-label="Main Navigation">
@@ -52,7 +57,7 @@ export function Sidebar({ collapsed, onToggle }) {
               }
               title={collapsed ? item.label : undefined}
             >
-              <Icon size={18} className="nav-icon" />
+              <Icon size={17} className="nav-icon" />
               {!collapsed && <span className="nav-label">{item.label}</span>}
             </NavLink>
           );
@@ -67,7 +72,7 @@ export function Sidebar({ collapsed, onToggle }) {
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          {collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
           {!collapsed && <span>Collapse Sidebar</span>}
         </button>
       </div>

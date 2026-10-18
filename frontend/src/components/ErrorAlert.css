@@ -23,8 +23,9 @@
 
 .error-alert-text {
   font-size: 13px;
-  color: var(--text-primary);
+  color: var(--risk-critical-text);
   line-height: 1.4;
+  font-weight: 500;
 }
 
 .error-retry-btn {

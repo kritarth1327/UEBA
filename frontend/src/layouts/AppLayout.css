@@ -2,7 +2,7 @@
   display: flex;
   min-height: 100vh;
   width: 100%;
-  background: var(--bg-primary);
+  background: var(--bg-app);
 }
 
 .app-main-viewport {
@@ -15,10 +15,15 @@
 
 .app-content-container {
   flex: 1;
-  padding: 24px;
-  max-width: 1440px;
+  padding: 24px 32px;
+  max-width: 1480px;
   width: 100%;
   margin: 0 auto;
+}
+
+.page-motion-wrapper {
+  width: 100%;
+  min-height: 100%;
 }
 
 @media (max-width: 768px) {

@@ -9,6 +9,8 @@ import {
   Shield,
   Building2,
   Users as UsersIcon,
+  X,
+  ExternalLink,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
@@ -33,7 +35,7 @@ export function UsersPage() {
   const initialPage = parseInt(searchParams.get('page') || '1', 10);
 
   const [searchInput, setSearchInput] = useState(initialSearch);
-  const debouncedSearch = useDebounce(searchInput, 300);
+  const debouncedSearch = useDebounce(searchInput, 280);
 
   const [department, setDepartment] = useState(initialDept);
   const [sortBy, setSortBy] = useState(initialSortBy);
@@ -44,7 +46,7 @@ export function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Sync to URL search params
+  // Sync state to URL search parameters
   useEffect(() => {
     const params = new URLSearchParams();
     if (debouncedSearch) params.set('search', debouncedSearch);
@@ -69,7 +71,7 @@ export function UsersPage() {
       });
       setData(res);
     } catch (err) {
-      setError(err.message || 'Failed to retrieve user records.');
+      setError(err.message || 'Failed to retrieve entity records.');
     } finally {
       setLoading(false);
     }
@@ -99,27 +101,27 @@ export function UsersPage() {
 
   return (
     <div className="users-page">
-      <div className="users-header">
+      <div className="page-header">
         <div>
-          <h1 className="users-title">User Directory & Entity Monitoring</h1>
-          <p className="users-subtitle">
-            Searchable employee profiles with real-time risk assessments and historical activity.
+          <h1 className="page-title">Entity Intelligence & User Directory</h1>
+          <p className="page-subtitle">
+            Monitored employees and service accounts with behavior baseline profiles and risk assessments.
           </p>
         </div>
 
-        <div className="users-count-tag">
-          <UsersIcon size={14} />
+        <div className="users-count-tag font-mono">
+          <UsersIcon size={14} className="text-teal" />
           <span>{data?.total ?? 0} Ingested Entities</span>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="users-filter-bar card">
-        <div className="search-input-wrapper">
-          <Search size={16} className="search-icon" />
+      <div className="card users-filter-bar">
+        <div className="search-box">
+          <Search size={15} className="search-icon text-muted" />
           <input
             type="text"
-            className="search-input"
+            className="search-field"
             placeholder="Search by User ID, name, email, or role..."
             value={searchInput}
             onChange={(e) => {
@@ -127,13 +129,25 @@ export function UsersPage() {
               setPage(1);
             }}
           />
+          {searchInput && (
+            <button
+              type="button"
+              className="clear-search-btn"
+              onClick={() => {
+                setSearchInput('');
+                setPage(1);
+              }}
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
-        <div className="filter-controls">
-          <div className="select-wrapper">
-            <Building2 size={14} className="select-icon" />
+        <div className="filter-dropdowns">
+          <div className="select-container">
+            <Building2 size={14} className="select-icon text-muted" />
             <select
-              className="filter-select"
+              className="styled-select"
               value={department}
               onChange={(e) => {
                 setDepartment(e.target.value);
@@ -143,17 +157,17 @@ export function UsersPage() {
               <option value="">All Departments</option>
               <option value="Engineering">Engineering</option>
               <option value="Finance">Finance</option>
-              <option value="HR">Human Resources</option>
+              <option value="Human Resources">Human Resources</option>
               <option value="IT">Information Technology</option>
               <option value="Sales">Sales & Marketing</option>
               <option value="Legal">Legal</option>
             </select>
           </div>
 
-          <div className="select-wrapper">
-            <ArrowUpDown size={14} className="select-icon" />
+          <div className="select-container">
+            <ArrowUpDown size={14} className="select-icon text-muted" />
             <select
-              className="filter-select"
+              className="styled-select"
               value={`${sortBy}-${sortDir}`}
               onChange={(e) => {
                 const [sb, sd] = e.target.value.split('-');
@@ -166,7 +180,7 @@ export function UsersPage() {
               <option value="user_id-desc">User ID (Z-A)</option>
               <option value="risk-desc">Risk Score (Highest First)</option>
               <option value="risk-asc">Risk Score (Lowest First)</option>
-              <option value="alerts-desc">Alerts (Most First)</option>
+              <option value="alerts-desc">Alerts Count (Most First)</option>
             </select>
           </div>
 
@@ -181,14 +195,14 @@ export function UsersPage() {
       {error && <ErrorAlert message={error} onRetry={fetchUsers} />}
 
       {loading ? (
-        <LoadingSpinner message="Querying user directory..." />
+        <LoadingSpinner message="Querying enterprise directory..." />
       ) : !data || data.items.length === 0 ? (
         <EmptyState
           icon={UsersIcon}
-          title={searchInput || department ? 'No Matching Users Found' : 'User Directory Empty'}
+          title={searchInput || department ? 'No Matching Entities Found' : 'User Directory Empty'}
           description={
             searchInput || department
-              ? 'No users match your search query or department filter.'
+              ? 'No entities match your search term or department filter.'
               : 'No enterprise users have been ingested yet. The CERT dataset r4.2 is awaiting download and pipeline processing.'
           }
           actionLabel={searchInput || department ? 'Clear Filters' : 'Check Ingestion Status'}
@@ -197,30 +211,30 @@ export function UsersPage() {
       ) : (
         <div className="card users-table-card">
           <div className="table-responsive">
-            <table className="users-table">
+            <table className="compact-table">
               <thead>
                 <tr>
                   <th onClick={() => handleSort('user_id')} className="sortable-th">
-                    <span>User Identifier</span>
-                    <ArrowUpDown size={12} />
+                    <span>Entity ID</span>
+                    <ArrowUpDown size={11} />
                   </th>
                   <th>Employee Name</th>
                   <th onClick={() => handleSort('department')} className="sortable-th">
                     <span>Department</span>
-                    <ArrowUpDown size={12} />
+                    <ArrowUpDown size={11} />
                   </th>
                   <th>Role</th>
                   <th onClick={() => handleSort('risk')} className="sortable-th">
                     <span>Hybrid Risk</span>
-                    <ArrowUpDown size={12} />
+                    <ArrowUpDown size={11} />
                   </th>
-                  <th>Risk Level</th>
+                  <th>Classification</th>
                   <th>Last Assessment</th>
                   <th onClick={() => handleSort('alerts')} className="sortable-th">
                     <span>Alerts</span>
-                    <ArrowUpDown size={12} />
+                    <ArrowUpDown size={11} />
                   </th>
-                  <th>Action</th>
+                  <th>Investigation</th>
                 </tr>
               </thead>
               <tbody>
@@ -230,11 +244,11 @@ export function UsersPage() {
                     className="clickable-row"
                     onClick={() => navigate(`/users/${user.user_id}`)}
                   >
-                    <td className="font-mono font-bold">{user.user_id}</td>
-                    <td>{user.employee_name || '—'}</td>
+                    <td className="font-mono font-bold text-primary">{user.user_id}</td>
+                    <td className="font-medium text-primary">{user.employee_name || '—'}</td>
                     <td>{user.department || '—'}</td>
                     <td className="text-muted">{user.role || '—'}</td>
-                    <td className="font-mono">
+                    <td className="font-mono font-bold">
                       {formatRiskScore(user.latest_risk_score)}
                     </td>
                     <td>
@@ -243,7 +257,7 @@ export function UsersPage() {
                       </span>
                     </td>
                     <td className="text-muted">{formatDate(user.latest_assessment_date)}</td>
-                    <td className="font-mono">{user.alert_count}</td>
+                    <td className="font-mono font-semibold">{user.alert_count}</td>
                     <td>
                       <button
                         type="button"
@@ -264,20 +278,23 @@ export function UsersPage() {
 
           {/* Pagination Controls */}
           {data.total_pages > 1 && (
-            <div className="pagination-footer">
-              <span className="pagination-info text-muted">
-                Page {data.page} of {data.total_pages} ({data.total} total users)
+            <div className="pagination-bar">
+              <span className="pagination-text text-muted font-mono">
+                Showing {((data.page - 1) * data.page_size) + 1} &ndash; {Math.min(data.page * data.page_size, data.total)} of {data.total} entities
               </span>
-              <div className="pagination-buttons">
+              <div className="pagination-controls">
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  <ChevronLeft size={14} />
+                  <ChevronLeft size={13} />
                   <span>Previous</span>
                 </button>
+                <span className="page-indicator font-mono">
+                  {data.page} / {data.total_pages}
+                </span>
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
@@ -285,7 +302,7 @@ export function UsersPage() {
                   onClick={() => setPage((p) => p + 1)}
                 >
                   <span>Next</span>
-                  <ChevronRight size={14} />
+                  <ChevronRight size={13} />
                 </button>
               </div>
             </div>

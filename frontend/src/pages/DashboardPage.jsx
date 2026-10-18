@@ -10,6 +10,10 @@ import {
   ArrowRight,
   Database,
   Cpu,
+  Layers,
+  TrendingUp,
+  FileSpreadsheet,
+  ExternalLink,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -22,6 +26,8 @@ import {
   LineChart,
   Line,
   CartesianGrid,
+  AreaChart,
+  Area,
 } from 'recharts';
 import { useApi } from '../hooks/useApi';
 import { api } from '../api/client';
@@ -30,6 +36,7 @@ import { ErrorAlert } from '../components/ErrorAlert';
 import { EmptyState } from '../components/EmptyState';
 import {
   formatDate,
+  formatDateTime,
   formatRiskScore,
   getRiskBadgeClass,
   getSeverityBadgeClass,
@@ -42,7 +49,7 @@ export function DashboardPage() {
   const { data, loading, error, execute } = useApi(api.getDashboardOverview);
 
   if (loading) {
-    return <LoadingSpinner message="Calculating security telemetry..." />;
+    return <LoadingSpinner message="Querying enterprise security telemetry..." />;
   }
 
   if (error) {
@@ -54,40 +61,40 @@ export function DashboardPage() {
   // Chart data formatting
   const riskChartData = data?.risk_distribution
     ? [
-        { name: 'High', count: data.risk_distribution.high, color: '#e2753a' },
-        { name: 'Medium', count: data.risk_distribution.medium, color: '#d99a26' },
-        { name: 'Low', count: data.risk_distribution.low, color: '#36a36f' },
+        { name: 'High', count: data.risk_distribution.high, color: '#c2410c' },
+        { name: 'Medium', count: data.risk_distribution.medium, color: '#b45309' },
+        { name: 'Low', count: data.risk_distribution.low, color: '#15803d' },
       ]
     : [];
 
   const severityData = data?.alerts_by_severity
     ? [
-        { name: 'Critical', count: data.alerts_by_severity.critical, color: '#e04b4b' },
-        { name: 'High', count: data.alerts_by_severity.high, color: '#e2753a' },
-        { name: 'Medium', count: data.alerts_by_severity.medium, color: '#d99a26' },
-        { name: 'Low', count: data.alerts_by_severity.low, color: '#36a36f' },
+        { name: 'Critical', count: data.alerts_by_severity.critical, color: '#991b1b' },
+        { name: 'High', count: data.alerts_by_severity.high, color: '#c2410c' },
+        { name: 'Medium', count: data.alerts_by_severity.medium, color: '#b45309' },
+        { name: 'Low', count: data.alerts_by_severity.low, color: '#15803d' },
       ]
     : [];
 
   return (
     <div className="dashboard-page">
-      {/* Page Title & Readiness Banner */}
-      <div className="dashboard-header">
+      {/* Header Banner */}
+      <div className="page-header">
         <div>
-          <h1 className="dashboard-title">Security Operations Overview</h1>
-          <p className="dashboard-subtitle">
-            Enterprise behavioral risk evaluation and threat telemetry.
+          <h1 className="page-title">Security Operations Overview</h1>
+          <p className="page-subtitle">
+            Enterprise entity behavior analytics, behavioral deviation scoring, and prioritized insider threat telemetry.
           </p>
         </div>
 
-        <div className="readiness-pills">
+        <div className="dashboard-readiness-group">
           <div
             className={`readiness-pill ${
               data?.dataset_ready ? 'pill-ready' : 'pill-pending'
             }`}
           >
             <Database size={13} />
-            <span>Dataset: {data?.dataset_ready ? 'Ingested' : 'Pending r4.2'}</span>
+            <span>Dataset: {data?.dataset_ready ? 'Ingested' : 'CERT r4.2 Ingestion Pending'}</span>
           </div>
 
           <div
@@ -96,30 +103,34 @@ export function DashboardPage() {
             }`}
           >
             <Cpu size={13} />
-            <span>Models: {data?.models_ready ? 'Ready' : 'Awaiting Training'}</span>
+            <span>Inference: {data?.models_ready ? 'Online' : 'Awaiting Model Weights'}</span>
           </div>
         </div>
       </div>
 
-      {/* Top Metric Cards */}
-      <div className="metrics-grid">
-        <div className="card metric-card" onClick={() => navigate('/users')}>
-          <div className="metric-header">
-            <span className="metric-label">Total Ingested Users</span>
-            <Users size={16} className="metric-icon" />
+      {/* KPI Metric Grid */}
+      <div className="kpi-grid">
+        <div className="card kpi-card" onClick={() => navigate('/users')}>
+          <div className="kpi-top">
+            <span className="kpi-label">Ingested Entities</span>
+            <div className="kpi-icon-box">
+              <Users size={16} className="text-teal" />
+            </div>
           </div>
-          <div className="metric-value">{data?.total_users ?? 0}</div>
-          <div className="metric-footer text-muted">
-            {data?.assessed_users ?? 0} assessed by hybrid pipeline
+          <div className="kpi-value font-mono">{data?.total_users ?? 0}</div>
+          <div className="kpi-subtext text-muted">
+            <span className="font-mono text-primary font-medium">{data?.assessed_users ?? 0}</span> evaluated by detection pipeline
           </div>
         </div>
 
-        <div className="card metric-card" onClick={() => navigate('/alerts')}>
-          <div className="metric-header">
-            <span className="metric-label">Active Alerts</span>
-            <ShieldAlert size={16} className="metric-icon" />
+        <div className="card kpi-card" onClick={() => navigate('/alerts')}>
+          <div className="kpi-top">
+            <span className="kpi-label">Security Alerts</span>
+            <div className="kpi-icon-box">
+              <ShieldAlert size={16} className="text-amber" />
+            </div>
           </div>
-          <div className="metric-value">
+          <div className="kpi-value font-mono">
             {data?.alerts_by_severity
               ? data.alerts_by_severity.critical +
                 data.alerts_by_severity.high +
@@ -127,65 +138,72 @@ export function DashboardPage() {
                 data.alerts_by_severity.low
               : 0}
           </div>
-          <div className="metric-footer">
-            <span className="metric-crit-count font-mono">
+          <div className="kpi-subtext">
+            <span className="font-mono font-bold text-critical">
               {data?.alerts_by_severity?.critical ?? 0} Critical
             </span>
-            <span className="text-muted"> requiring review</span>
+            <span className="text-muted"> incidents requiring review</span>
           </div>
         </div>
 
-        <div className="card metric-card" onClick={() => navigate('/users?sort_by=risk&sort_dir=desc')}>
-          <div className="metric-header">
-            <span className="metric-label">High Risk Profiles</span>
-            <AlertTriangle size={16} className="metric-icon metric-icon-warn" />
+        <div className="card kpi-card" onClick={() => navigate('/users?sort_by=risk&sort_dir=desc')}>
+          <div className="kpi-top">
+            <span className="kpi-label">Elevated Threat Profiles</span>
+            <div className="kpi-icon-box">
+              <AlertTriangle size={16} className="text-orange" />
+            </div>
           </div>
-          <div className="metric-value">{data?.risk_distribution?.high ?? 0}</div>
-          <div className="metric-footer text-muted">
-            Hybrid score &ge; 70 threshold
+          <div className="kpi-value font-mono">{data?.risk_distribution?.high ?? 0}</div>
+          <div className="kpi-subtext text-muted">
+            Hybrid risk score &ge; 70 calibrated threshold
           </div>
         </div>
 
-        <div className="card metric-card" onClick={() => navigate('/models')}>
-          <div className="metric-header">
-            <span className="metric-label">Detection Engines</span>
-            <Activity size={16} className="metric-icon" />
+        <div className="card kpi-card" onClick={() => navigate('/models')}>
+          <div className="kpi-top">
+            <span className="kpi-label">Detection Engines</span>
+            <div className="kpi-icon-box">
+              <Layers size={16} className="text-teal" />
+            </div>
           </div>
-          <div className="metric-value font-mono">3 Signals</div>
-          <div className="metric-footer text-muted">
-            XGBoost + Autoencoder + Baselines
+          <div className="kpi-value font-mono">3 Signals</div>
+          <div className="kpi-subtext text-muted">
+            XGBoost + Dense Autoencoder + Baselines
           </div>
         </div>
       </div>
 
       {!hasData ? (
         <EmptyState
-          icon={Database}
-          title="CERT r4.2 Dataset Ingestion Pending"
-          description="No employee behavior profiles have been ingested into the database yet. Place the CERT r4.2 log files in data/raw/r4.2/ and execute the processing pipeline to populate telemetry."
-          actionLabel="Check System Status"
+          icon={FileSpreadsheet}
+          title="CERT Insider Threat Dataset r4.2 Ingestion Pending"
+          description="The backend database is initialized with all schemas and API endpoints. Once the CERT r4.2 download completes, extract the CSV files to data/raw/r4.2/ and execute the ingestion pipeline to populate telemetry."
+          actionLabel="View System & Dataset Diagnostics"
           onAction={() => navigate('/system')}
         />
       ) : (
         <>
           {/* Charts Row */}
-          <div className="dashboard-charts-grid">
+          <div className="dashboard-charts-row">
             {/* Risk Distribution Chart */}
-            <div className="card chart-card">
-              <div className="chart-header">
-                <h3 className="chart-title">Risk Distribution</h3>
-                <span className="chart-subtitle text-muted">Latest User Assessments</span>
+            <div className="card chart-panel">
+              <div className="chart-panel-header">
+                <div>
+                  <h3 className="section-title">Risk Distribution</h3>
+                  <span className="section-subtitle text-muted">User population categorization</span>
+                </div>
               </div>
-              <div className="chart-body" style={{ height: 200 }}>
+              <div className="chart-body" style={{ height: 190 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={riskChartData} layout="vertical" margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
-                    <XAxis type="number" stroke="#677b95" fontSize={11} />
-                    <YAxis dataKey="name" type="category" stroke="#9cb0c9" fontSize={12} width={60} />
+                  <BarChart data={riskChartData} layout="vertical" margin={{ top: 8, right: 24, left: 16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#edf2f7" horizontal={false} />
+                    <XAxis type="number" stroke="#94a3b8" fontSize={11} allowDecimals={false} />
+                    <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={12} width={55} />
                     <Tooltip
-                      contentStyle={{ background: '#1c2430', border: '1px solid #37475e', borderRadius: 4 }}
-                      labelStyle={{ color: '#e6edf5' }}
+                      contentStyle={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 12, boxShadow: '0 2px 4px rgba(0,0,0,0.06)' }}
+                      labelStyle={{ color: '#0f172a', fontWeight: 600 }}
                     />
-                    <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={18}>
                       {riskChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
@@ -196,22 +214,24 @@ export function DashboardPage() {
             </div>
 
             {/* Severity Breakdown */}
-            <div className="card chart-card">
-              <div className="chart-header">
-                <h3 className="chart-title">Alerts by Severity</h3>
-                <span className="chart-subtitle text-muted">Security Incidents</span>
+            <div className="card chart-panel">
+              <div className="chart-panel-header">
+                <div>
+                  <h3 className="section-title">Alerts by Severity</h3>
+                  <span className="section-subtitle text-muted">Incidents classified by severity</span>
+                </div>
               </div>
-              <div className="chart-body" style={{ height: 200 }}>
+              <div className="chart-body" style={{ height: 190 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={severityData} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#263345" vertical={false} />
-                    <XAxis dataKey="name" stroke="#9cb0c9" fontSize={12} />
-                    <YAxis stroke="#677b95" fontSize={11} allowDecimals={false} />
+                  <BarChart data={severityData} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#edf2f7" vertical={false} />
+                    <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
+                    <YAxis stroke="#94a3b8" fontSize={11} allowDecimals={false} />
                     <Tooltip
-                      contentStyle={{ background: '#1c2430', border: '1px solid #37475e', borderRadius: 4 }}
-                      labelStyle={{ color: '#e6edf5' }}
+                      contentStyle={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 12, boxShadow: '0 2px 4px rgba(0,0,0,0.06)' }}
+                      labelStyle={{ color: '#0f172a', fontWeight: 600 }}
                     />
-                    <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                    <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={28}>
                       {severityData.map((entry, index) => (
                         <Cell key={`sev-${index}`} fill={entry.color} />
                       ))}
@@ -224,55 +244,67 @@ export function DashboardPage() {
 
           {/* Activity Trends */}
           {data.activity_trends && data.activity_trends.length > 0 && (
-            <div className="card trend-card">
-              <div className="chart-header">
-                <h3 className="chart-title">Daily Activity Volume & Anomaly Signals</h3>
-                <span className="chart-subtitle text-muted">Aggregated events over observation period</span>
+            <div className="card chart-panel">
+              <div className="chart-panel-header">
+                <div>
+                  <h3 className="section-title">Enterprise Activity Trends & Flagged Anomalies</h3>
+                  <span className="section-subtitle text-muted">Timeline of observed enterprise events vs baseline deviations</span>
+                </div>
               </div>
-              <div style={{ height: 220 }}>
+              <div style={{ height: 210 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={data.activity_trends} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#263345" />
-                    <XAxis dataKey="date" stroke="#677b95" fontSize={11} tickFormatter={formatDate} />
-                    <YAxis stroke="#677b95" fontSize={11} />
+                  <AreaChart data={data.activity_trends} margin={{ top: 8, right: 24, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="totalEventsGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0891b2" stopOpacity={0.15}/>
+                        <stop offset="95%" stopColor="#0891b2" stopOpacity={0.0}/>
+                      </linearGradient>
+                      <linearGradient id="anomEventsGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#c2410c" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#c2410c" stopOpacity={0.0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#edf2f7" />
+                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} tickFormatter={formatDate} />
+                    <YAxis stroke="#94a3b8" fontSize={11} />
                     <Tooltip
-                      contentStyle={{ background: '#1c2430', border: '1px solid #37475e', borderRadius: 4 }}
-                      labelStyle={{ color: '#e6edf5' }}
+                      contentStyle={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 12, boxShadow: '0 2px 4px rgba(0,0,0,0.06)' }}
+                      labelStyle={{ color: '#0f172a', fontWeight: 600 }}
                     />
-                    <Line type="monotone" dataKey="total_events" name="Total Events" stroke="#2da1bb" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="anomalous_events" name="Anomalous Signals" stroke="#e04b4b" strokeWidth={2} dot={false} />
-                  </LineChart>
+                    <Area type="monotone" dataKey="total_events" name="Total Activity Events" stroke="#0e7490" fill="url(#totalEventsGradient)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="anomalous_events" name="Anomalous Signals" stroke="#c2410c" fill="url(#anomEventsGradient)" strokeWidth={2} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
           )}
 
-          {/* Tables Row: Highest Risk Users & Recent Alerts */}
-          <div className="dashboard-tables-grid">
-            {/* Highest Risk Users */}
+          {/* Tables Row */}
+          <div className="dashboard-tables-row">
+            {/* Top Risk Entities */}
             <div className="card dashboard-table-card">
-              <div className="table-card-header">
+              <div className="table-header-row">
                 <div>
-                  <h3 className="chart-title">Highest Risk Users</h3>
-                  <span className="chart-subtitle text-muted">Top behavioral threat indicators</span>
+                  <h3 className="section-title">Highest Risk Entities</h3>
+                  <span className="section-subtitle text-muted">Ranked by latest multi-signal hybrid score</span>
                 </div>
-                <Link to="/users?sort_by=risk&sort_dir=desc" className="view-all-link">
-                  <span>View All</span>
-                  <ArrowRight size={14} />
+                <Link to="/users?sort_by=risk&sort_dir=desc" className="view-link">
+                  <span>View All Users</span>
+                  <ArrowRight size={13} />
                 </Link>
               </div>
 
               {data.highest_risk_users.length === 0 ? (
-                <div className="table-empty-msg text-muted">No high-risk users detected.</div>
+                <div className="table-empty-notice text-muted">No high-risk users identified.</div>
               ) : (
                 <div className="table-responsive">
                   <table className="compact-table">
                     <thead>
                       <tr>
-                        <th>User ID</th>
+                        <th>Entity ID</th>
                         <th>Department</th>
-                        <th>Risk Score</th>
-                        <th>Level</th>
+                        <th>Hybrid Score</th>
+                        <th>Classification</th>
                         <th>Alerts</th>
                       </tr>
                     </thead>
@@ -283,9 +315,9 @@ export function DashboardPage() {
                           className="clickable-row"
                           onClick={() => navigate(`/users/${u.user_id}`)}
                         >
-                          <td className="font-mono font-bold">{u.user_id}</td>
+                          <td className="font-mono font-semibold text-primary">{u.user_id}</td>
                           <td>{u.department || '—'}</td>
-                          <td className="font-mono">{formatRiskScore(u.hybrid_risk_score)}</td>
+                          <td className="font-mono font-medium">{formatRiskScore(u.hybrid_risk_score)}</td>
                           <td>
                             <span className={`badge ${getRiskBadgeClass(u.risk_level)}`}>
                               {u.risk_level}
@@ -300,28 +332,28 @@ export function DashboardPage() {
               )}
             </div>
 
-            {/* Recent Alerts */}
+            {/* Recent Alerts Feed */}
             <div className="card dashboard-table-card">
-              <div className="table-card-header">
+              <div className="table-header-row">
                 <div>
-                  <h3 className="chart-title">Recent Security Alerts</h3>
-                  <span className="chart-subtitle text-muted">Unresolved and recent triage events</span>
+                  <h3 className="section-title">Recent Alert Queue</h3>
+                  <span className="section-subtitle text-muted">Latest triggered security incidents</span>
                 </div>
-                <Link to="/alerts" className="view-all-link">
+                <Link to="/alerts" className="view-link">
                   <span>View Queue</span>
-                  <ArrowRight size={14} />
+                  <ArrowRight size={13} />
                 </Link>
               </div>
 
               {data.recent_alerts.length === 0 ? (
-                <div className="table-empty-msg text-muted">No security alerts triggered.</div>
+                <div className="table-empty-notice text-muted">No active alerts recorded.</div>
               ) : (
                 <div className="table-responsive">
                   <table className="compact-table">
                     <thead>
                       <tr>
                         <th>Severity</th>
-                        <th>User</th>
+                        <th>Entity</th>
                         <th>Reason</th>
                         <th>Status</th>
                       </tr>
@@ -338,8 +370,8 @@ export function DashboardPage() {
                               {a.severity}
                             </span>
                           </td>
-                          <td className="font-mono">{a.user_id}</td>
-                          <td className="reason-cell" title={a.reason}>
+                          <td className="font-mono font-semibold text-primary">{a.user_id}</td>
+                          <td className="cell-reason" title={a.reason}>
                             {a.reason}
                           </td>
                           <td>

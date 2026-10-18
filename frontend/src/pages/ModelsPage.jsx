@@ -10,6 +10,9 @@ import {
   FileCode,
   Shield,
   HelpCircle,
+  Zap,
+  Sliders,
+  Scale,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -33,7 +36,7 @@ export function ModelsPage() {
       setStatusData(sRes);
       setEvalData(eRes);
     } catch (err) {
-      setError(err.message || 'Failed to retrieve model status.');
+      setError(err.message || 'Failed to retrieve model telemetry.');
     } finally {
       setLoading(false);
     }
@@ -44,7 +47,7 @@ export function ModelsPage() {
   }, []);
 
   if (loading) {
-    return <LoadingSpinner message="Checking model readiness and evaluation artifacts..." />;
+    return <LoadingSpinner message="Inspecting detection architectures and experiment records..." />;
   }
 
   if (error) {
@@ -57,51 +60,55 @@ export function ModelsPage() {
 
   return (
     <div className="models-page">
-      <div className="models-header">
+      <div className="page-header">
         <div>
-          <h1 className="models-title">Detection Models & Experimental Evaluation</h1>
-          <p className="models-subtitle">
-            Inspection of supervised ML, neural autoencoders, baseline deviations, and multi-signal risk fusion.
+          <h1 className="page-title">Detection Models & Empirical Evaluation</h1>
+          <p className="page-subtitle">
+            Inspection of supervised machine learning classifiers, dense autoencoders, baseline deviations, and multi-signal risk fusion.
           </p>
         </div>
 
-        <div className="models-status-pill">
+        <div className="models-status-pill font-mono">
           {statusData?.all_models_ready ? (
-            <span className="badge badge-low">All Models Ready</span>
+            <span className="badge badge-low">All Inference Engines Active</span>
           ) : (
-            <span className="badge badge-neutral">Awaiting CERT Training</span>
+            <span className="badge badge-neutral">Pipeline Awaiting Model Training</span>
           )}
         </div>
       </div>
 
-      {/* Model Architectures & Interfaces Grid */}
+      {/* Architecture Cards Grid */}
       <div className="models-grid">
         {/* Model 1: Random Forest Baseline */}
         <div className="card model-card">
           <div className="model-card-header">
             <div className="model-icon-box">
-              <GitBranch size={20} className="model-icon text-teal" />
+              <GitBranch size={19} className="text-teal" />
             </div>
             <div>
-              <h3 className="model-name">Random Forest Baseline</h3>
-              <span className="model-version text-muted">Version: 1.0.0 &bull; Scikit-Learn</span>
+              <h3 className="model-title">Random Forest Baseline</h3>
+              <span className="model-framework font-mono text-muted">Scikit-Learn 1.9.1 &bull; Baseline</span>
             </div>
           </div>
-          <p className="model-description">
-            Ensemble decision forest serving as the classical tabular baseline. Classifies daily feature vectors against ground truth threat scenarios.
+          <p className="model-desc">
+            Ensemble bagged decision forest serving as the classical tabular reference. Classifies user-day behavioral vectors against labeled threat scenarios.
           </p>
-          <div className="model-meta-list">
-            <div className="model-meta-row">
-              <span className="meta-label">Target:</span>
-              <span className="meta-val">Known threat scenarios</span>
+          <div className="model-specs">
+            <div className="spec-row">
+              <span className="spec-key">Role:</span>
+              <span className="spec-val">Supervised Reference Classifier</span>
             </div>
-            <div className="model-meta-row">
-              <span className="meta-label">Features:</span>
-              <span className="meta-val">User-day aggregated counts</span>
+            <div className="spec-row">
+              <span className="spec-key">Input Features:</span>
+              <span className="spec-val font-mono">User-Day Aggregated Counts</span>
             </div>
-            <div className="model-meta-row">
-              <span className="meta-label">Status:</span>
-              <span className="meta-val text-muted">Awaiting dataset training</span>
+            <div className="spec-row">
+              <span className="spec-key">Hyperparameters:</span>
+              <span className="spec-val font-mono">n_estimators=100, max_depth=12</span>
+            </div>
+            <div className="spec-row">
+              <span className="spec-key">Readiness:</span>
+              <span className="spec-val text-muted">Awaiting CERT training split</span>
             </div>
           </div>
         </div>
@@ -110,28 +117,32 @@ export function ModelsPage() {
         <div className="card model-card">
           <div className="model-card-header">
             <div className="model-icon-box">
-              <Cpu size={20} className="model-icon text-amber" />
+              <Cpu size={19} className="text-amber" />
             </div>
             <div>
-              <h3 className="model-name">XGBoost Threat Classifier</h3>
-              <span className="model-version text-muted">Version: 1.0.0 &bull; XGBoost 3.4.1</span>
+              <h3 className="model-title">XGBoost Threat Classifier</h3>
+              <span className="model-framework font-mono text-muted">XGBoost 3.4.1 &bull; Signal 1</span>
             </div>
           </div>
-          <p className="model-description">
-            Gradient boosted decision trees optimized for sparse multi-source enterprise activity logs. Generates calibrated threat probabilities [0, 1].
+          <p className="model-desc">
+            Gradient boosted decision tree producing continuous calibrated threat probabilities [0, 1]. Optimized for sparse, multi-source enterprise logs.
           </p>
-          <div className="model-meta-list">
-            <div className="model-meta-row">
-              <span className="meta-label">Target:</span>
-              <span className="meta-val">Threat classification & ranking</span>
+          <div className="model-specs">
+            <div className="spec-row">
+              <span className="spec-key">Role:</span>
+              <span className="spec-val">Primary Supervised Threat Detector</span>
             </div>
-            <div className="model-meta-row">
-              <span className="meta-label">Objective:</span>
-              <span className="meta-val font-mono">binary:logistic</span>
+            <div className="spec-row">
+              <span className="spec-key">Objective:</span>
+              <span className="spec-val font-mono">binary:logistic</span>
             </div>
-            <div className="model-meta-row">
-              <span className="meta-label">Status:</span>
-              <span className="meta-val text-muted">Awaiting dataset training</span>
+            <div className="spec-row">
+              <span className="spec-key">Signal Weight:</span>
+              <span className="spec-val font-mono font-bold text-teal">0.45 (45%)</span>
+            </div>
+            <div className="spec-row">
+              <span className="spec-key">Readiness:</span>
+              <span className="spec-val text-muted">Awaiting CERT training split</span>
             </div>
           </div>
         </div>
@@ -140,28 +151,32 @@ export function ModelsPage() {
         <div className="card model-card">
           <div className="model-card-header">
             <div className="model-icon-box">
-              <Layers size={20} className="model-icon text-purple" />
+              <Layers size={19} className="text-purple" />
             </div>
             <div>
-              <h3 className="model-name">Dense Autoencoder</h3>
-              <span className="model-version text-muted">Version: 1.0.0 &bull; PyTorch 2.14.1</span>
+              <h3 className="model-title">Dense Autoencoder</h3>
+              <span className="model-framework font-mono text-muted">PyTorch 2.14.1 &bull; Signal 2</span>
             </div>
           </div>
-          <p className="model-description">
-            Deep neural network trained exclusively on benign activity. Unseen attack patterns result in elevated reconstruction error (MSE).
+          <p className="model-desc">
+            Artificial Neural Network trained strictly on benign baseline profiles. Reconstructs normal activity; unseen attack patterns produce high MSE loss.
           </p>
-          <div className="model-meta-list">
-            <div className="model-meta-row">
-              <span className="meta-label">Architecture:</span>
-              <span className="meta-val font-mono">32 &rarr; 16 &rarr; 8 &rarr; 16 &rarr; 32</span>
+          <div className="model-specs">
+            <div className="spec-row">
+              <span className="spec-key">Architecture:</span>
+              <span className="spec-val font-mono">Dense(32 &rarr; 16 &rarr; 8 &rarr; 16 &rarr; 32)</span>
             </div>
-            <div className="model-meta-row">
-              <span className="meta-label">Activations:</span>
-              <span className="meta-val font-mono">ReLU hidden</span>
+            <div className="spec-row">
+              <span className="spec-key">Activations:</span>
+              <span className="spec-val font-mono">ReLU Hidden &bull; MSE Loss</span>
             </div>
-            <div className="model-meta-row">
-              <span className="meta-label">Status:</span>
-              <span className="meta-val text-muted">Awaiting normal profile training</span>
+            <div className="spec-row">
+              <span className="spec-key">Signal Weight:</span>
+              <span className="spec-val font-mono font-bold text-teal">0.35 (35%)</span>
+            </div>
+            <div className="spec-row">
+              <span className="spec-key">Readiness:</span>
+              <span className="spec-val text-muted">Awaiting benign profile training</span>
             </div>
           </div>
         </div>
@@ -170,55 +185,58 @@ export function ModelsPage() {
         <div className="card model-card">
           <div className="model-card-header">
             <div className="model-icon-box">
-              <Shield size={20} className="model-icon text-teal" />
+              <Scale size={19} className="text-teal" />
             </div>
             <div>
-              <h3 className="model-name">Hybrid Risk Engine</h3>
-              <span className="model-version text-muted">Multi-Signal Calibrated Fusion</span>
+              <h3 className="model-title">Hybrid Risk Engine</h3>
+              <span className="model-framework font-mono text-muted">Multi-Signal Calibrated Fusion</span>
             </div>
           </div>
-          <p className="model-description">
-            Combines the Supervised ML threat probability, ANN reconstruction error, and per-user longitudinal baseline z-scores into an explainable score.
+          <p className="model-desc">
+            Mathematical fusion engine synthesizing supervised threat probabilities, neural reconstruction loss, and personal longitudinal baseline deviations.
           </p>
-          <div className="model-meta-list">
-            <div className="model-meta-row">
-              <span className="meta-label">Formula:</span>
-              <span className="meta-val font-mono">w1&middot;ML + w2&middot;ANN + w3&middot;Baseline</span>
+          <div className="model-specs">
+            <div className="spec-row">
+              <span className="spec-key">Signals:</span>
+              <span className="spec-val">Supervised ML + ANN + Baseline</span>
             </div>
-            <div className="model-meta-row">
-              <span className="meta-label">Thresholds:</span>
-              <span className="meta-val font-mono">High &ge; 70 | Med &ge; 40</span>
+            <div className="spec-row">
+              <span className="spec-key">Classification:</span>
+              <span className="spec-val font-mono">High &ge; 70 &bull; Med &ge; 40 &bull; Low &lt; 40</span>
             </div>
-            <div className="model-meta-row">
-              <span className="meta-label">Status:</span>
-              <span className="meta-val text-muted">Active logic, awaiting model inputs</span>
+            <div className="spec-row">
+              <span className="spec-key">Explainability:</span>
+              <span className="spec-val">Ranked Contributing Feature Weights</span>
+            </div>
+            <div className="spec-row">
+              <span className="spec-key">Status:</span>
+              <span className="spec-val text-teal font-medium">Engine Active &bull; Awaiting Inputs</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Experimental Evaluation Matrix */}
-      <div className="card evaluation-section-card">
-        <div className="eval-header">
+      {/* Empirical Evaluation Matrix Section */}
+      <div className="card eval-section-card">
+        <div className="eval-header-strip">
           <div>
-            <h3 className="section-title">Model Evaluation Matrix</h3>
+            <h3 className="section-title">Experimental Evaluation Matrix</h3>
             <p className="section-subtitle text-muted">
-              Empirical metrics measured against the ground truth test split.
+              Performance metrics measured strictly on reserved test splits against ground-truth CERT insider threat scenario labels.
             </p>
           </div>
-
           <span className={`badge ${hasEvaluations ? 'badge-low' : 'badge-neutral'}`}>
             {hasEvaluations ? 'Evaluated' : 'Evaluation Pending'}
           </span>
         </div>
 
         {!hasEvaluations ? (
-          <div className="honest-pending-box">
+          <div className="eval-pending-box">
             <AlertCircle size={20} className="pending-icon text-muted" />
-            <div className="pending-text">
-              <h4 className="pending-title">No Evaluation Results Available Yet</h4>
-              <p className="pending-desc">
-                Experimental results (Precision, Recall, F1, ROC-AUC, PR-AUC, Confusion Matrix) will be populated once models are trained and evaluated on the actual CERT Insider Threat Dataset r4.2. In compliance with strict research integrity, placeholder or fabricated metrics are never displayed.
+            <div className="pending-content">
+              <h4 className="pending-heading">No Model Evaluations Recorded Yet</h4>
+              <p className="pending-text text-muted">
+                In strict adherence to experimental research integrity, evaluation metrics (Accuracy, Precision, Recall, F1 Score, ROC-AUC, PR-AUC, Confusion Matrix) are populated exclusively from verified test runs against the CERT Insider Threat Dataset r4.2. No fabricated or hypothetical metrics are presented.
               </p>
             </div>
           </div>
@@ -227,7 +245,7 @@ export function ModelsPage() {
             <table className="compact-table">
               <thead>
                 <tr>
-                  <th>Model</th>
+                  <th>Detection Model</th>
                   <th>Version</th>
                   <th>Dataset Split</th>
                   <th>Accuracy</th>
@@ -241,7 +259,7 @@ export function ModelsPage() {
               <tbody>
                 {evaluations.map((ev, idx) => (
                   <tr key={idx}>
-                    <td className="font-bold">{ev.model_name}</td>
+                    <td className="font-bold text-primary">{ev.model_name}</td>
                     <td className="font-mono text-muted">{ev.version}</td>
                     <td className="font-mono">{ev.split}</td>
                     <td className="font-mono">{ev.accuracy !== null ? ev.accuracy.toFixed(4) : '—'}</td>

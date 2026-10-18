@@ -10,7 +10,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(8, 12, 18, 0.75);
+  background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(2px);
 }
 
@@ -25,7 +25,7 @@
 
 .modal-content {
   width: 100%;
-  background: var(--bg-card);
+  background: var(--bg-surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
@@ -39,9 +39,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-secondary);
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-surface-inset);
 }
 
 .modal-title {
@@ -54,8 +54,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   transition: all 0.15s ease;
@@ -63,7 +63,7 @@
 
 .modal-close-btn:hover {
   color: var(--text-primary);
-  background: var(--bg-card-hover);
+  background: var(--bg-surface-hover);
 }
 
 .modal-body {

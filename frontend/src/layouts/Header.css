@@ -1,7 +1,7 @@
 .app-header {
   height: var(--header-height);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-default);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -9,17 +9,21 @@
   position: sticky;
   top: 0;
   z-index: 90;
+  box-shadow: var(--shadow-xs);
 }
 
 .header-breadcrumbs {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 13px;
 }
 
 .breadcrumb-root,
 .breadcrumb-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--text-muted);
   font-weight: 500;
   transition: color 0.15s ease;
@@ -31,8 +35,8 @@
 }
 
 .breadcrumb-separator {
-  color: var(--border-strong);
-  font-size: 11px;
+  color: var(--text-faint);
+  flex-shrink: 0;
 }
 
 .breadcrumb-current {
@@ -43,41 +47,42 @@
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .health-indicator-pill {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   padding: 4px 10px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-inset);
+  border: 1px solid var(--border-default);
   border-radius: 100px;
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--text-secondary);
-  transition: border-color 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 .health-indicator-pill:hover {
   border-color: var(--border-strong);
-  color: var(--text-primary);
+  background: var(--bg-surface-hover);
 }
 
 .health-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .health-dot-ok {
   background: var(--risk-low);
-  box-shadow: 0 0 6px rgba(54, 163, 111, 0.5);
+  box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.15);
 }
 
 .health-dot-error {
   background: var(--risk-critical);
-  box-shadow: 0 0 6px rgba(224, 75, 75, 0.5);
+  box-shadow: 0 0 0 2px rgba(153, 27, 27, 0.15);
 }
 
 .header-alerts-btn {
@@ -88,8 +93,8 @@
   width: 32px;
   height: 32px;
   border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
   color: var(--text-secondary);
   transition: all 0.15s ease;
 }
@@ -97,6 +102,7 @@
 .header-alerts-btn:hover {
   color: var(--text-primary);
   border-color: var(--border-strong);
+  background: var(--bg-surface-hover);
 }
 
 .alerts-count-badge {
@@ -107,8 +113,8 @@
   height: 16px;
   padding: 0 4px;
   border-radius: 8px;
-  background: var(--accent-light);
-  color: #ffffff;
+  background: var(--accent-primary);
+  color: var(--text-inverse);
   font-size: 10px;
   font-weight: 700;
   display: flex;

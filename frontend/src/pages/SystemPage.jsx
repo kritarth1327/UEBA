@@ -12,6 +12,8 @@ import {
   RefreshCw,
   FolderOpen,
   Terminal,
+  Code2,
+  ArrowRight,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -34,7 +36,7 @@ export function SystemPage() {
       const res = await api.getSystemStatus();
       setSystemData(res);
     } catch (err) {
-      setError(err.message || 'Failed to query system status diagnostics.');
+      setError(err.message || 'Failed to query system diagnostics.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -48,12 +50,12 @@ export function SystemPage() {
   const getStatusIcon = (status) => {
     const s = (status || '').toLowerCase();
     if (s === 'healthy' || s === 'ready' || s === 'connected' || s === 'operational') {
-      return <CheckCircle2 size={18} className="status-icon text-low" />;
+      return <CheckCircle2 size={17} className="status-ico text-low" />;
     }
-    if (s === 'partial' || s === 'pending' || s === 'processed') {
-      return <AlertTriangle size={18} className="status-icon text-medium" />;
+    if (s === 'partial' || s === 'pending' || s === 'processed' || s === 'pending_data') {
+      return <AlertTriangle size={17} className="status-ico text-medium" />;
     }
-    return <XCircle size={18} className="status-icon text-critical" />;
+    return <XCircle size={17} className="status-ico text-critical" />;
   };
 
   const getStatusBadge = (status) => {
@@ -61,23 +63,23 @@ export function SystemPage() {
     if (s === 'healthy' || s === 'ready' || s === 'connected' || s === 'operational') {
       return <span className="badge badge-low">{status}</span>;
     }
-    if (s === 'partial' || s === 'pending' || s === 'processed') {
+    if (s === 'partial' || s === 'pending' || s === 'processed' || s === 'pending_data') {
       return <span className="badge badge-medium">{status}</span>;
     }
     return <span className="badge badge-critical">{status || 'Unavailable'}</span>;
   };
 
   if (loading) {
-    return <LoadingSpinner message="Evaluating operational diagnostics..." />;
+    return <LoadingSpinner message="Auditing infrastructure and dataset diagnostics..." />;
   }
 
   return (
     <div className="system-page">
-      <div className="system-header">
+      <div className="page-header">
         <div>
-          <h1 className="system-title">System Infrastructure & Dataset Readiness</h1>
-          <p className="system-subtitle">
-            Diagnostics for backend API, database persistence, CERT r4.2 raw log files, and detection pipeline.
+          <h1 className="page-title">System Infrastructure & Dataset Diagnostics</h1>
+          <p className="page-subtitle">
+            Operational status of FastAPI backend, database persistence, CERT r4.2 raw log files, and detection pipeline.
           </p>
         </div>
 
@@ -87,8 +89,8 @@ export function SystemPage() {
           onClick={() => fetchStatus(true)}
           disabled={refreshing}
         >
-          <RefreshCw size={14} className={refreshing ? 'spinner-icon' : ''} />
-          <span>{refreshing ? 'Refreshing...' : 'Run Diagnostics'}</span>
+          <RefreshCw size={13} className={refreshing ? 'spinner-icon' : ''} />
+          <span>{refreshing ? 'Auditing...' : 'Run Diagnostics'}</span>
         </button>
       </div>
 
@@ -101,12 +103,12 @@ export function SystemPage() {
             <div className="overall-left">
               {getStatusIcon(systemData.overall_status)}
               <div>
-                <h3 className="overall-title">
-                  System Status:{' '}
+                <h3 className="overall-heading">
+                  System Readiness:{' '}
                   <span className="font-mono">{systemData.overall_status.toUpperCase()}</span>
                 </h3>
-                <p className="overall-desc text-muted">
-                  Last checked: {formatDateTime(systemData.timestamp)}
+                <p className="overall-timestamp text-muted">
+                  Diagnostic timestamp: {formatDateTime(systemData.timestamp)}
                 </p>
               </div>
             </div>
@@ -115,172 +117,186 @@ export function SystemPage() {
 
           {/* Component Diagnostics Grid */}
           <div className="components-grid">
-            {/* 1. Backend Server */}
+            {/* 1. FastAPI Application */}
             <div className="card component-card">
-              <div className="component-header">
-                <div className="component-title-box">
-                  <Server size={18} className="component-icon text-teal" />
-                  <span className="component-name">FastAPI Application</span>
+              <div className="component-top">
+                <div className="comp-title-group">
+                  <Server size={17} className="text-teal" />
+                  <span className="comp-name">FastAPI Backend</span>
                 </div>
                 {getStatusBadge(systemData.backend_status?.status)}
               </div>
-              <p className="component-msg">{systemData.backend_status?.message}</p>
-              <div className="component-details-box">
-                <div className="detail-row">
-                  <span className="d-label">Python Environment:</span>
-                  <span className="d-val font-mono">
+              <p className="comp-desc text-muted">{systemData.backend_status?.message}</p>
+              <div className="comp-specs">
+                <div className="spec-row">
+                  <span className="spec-key">Python Environment:</span>
+                  <span className="spec-val font-mono">
                     {systemData.backend_status?.details?.python_version || '3.14.7'}
                   </span>
                 </div>
-                <div className="detail-row">
-                  <span className="d-label">API Version:</span>
-                  <span className="d-val font-mono">v1</span>
+                <div className="spec-row">
+                  <span className="spec-key">API Version:</span>
+                  <span className="spec-val font-mono">v1</span>
+                </div>
+                <div className="spec-row">
+                  <span className="spec-key">Architecture:</span>
+                  <span className="spec-val">RESTful Microservice</span>
                 </div>
               </div>
             </div>
 
             {/* 2. Database Connection */}
             <div className="card component-card">
-              <div className="component-header">
-                <div className="component-title-box">
-                  <Database size={18} className="component-icon text-teal" />
-                  <span className="component-name">Database Persistence</span>
+              <div className="component-top">
+                <div className="comp-title-group">
+                  <Database size={17} className="text-teal" />
+                  <span className="comp-name">Database Persistence</span>
                 </div>
                 {getStatusBadge(systemData.database_status?.status)}
               </div>
-              <p className="component-msg">{systemData.database_status?.message}</p>
-              <div className="component-details-box">
-                <div className="detail-row">
-                  <span className="d-label">Dialect / Driver:</span>
-                  <span className="d-val font-mono">
+              <p className="comp-desc text-muted">{systemData.database_status?.message}</p>
+              <div className="comp-specs">
+                <div className="spec-row">
+                  <span className="spec-key">Dialect / Driver:</span>
+                  <span className="spec-val font-mono">
                     {systemData.database_status?.details?.driver || 'sqlite'}
                   </span>
                 </div>
-                <div className="detail-row">
-                  <span className="d-label">Persisted Users:</span>
-                  <span className="d-val font-mono">
+                <div className="spec-row">
+                  <span className="spec-key">Persisted Entities:</span>
+                  <span className="spec-val font-mono">
                     {systemData.database_status?.details?.persisted_users ?? 0}
                   </span>
                 </div>
-                <div className="detail-row">
-                  <span className="d-label">Behavior Records:</span>
-                  <span className="d-val font-mono">
+                <div className="spec-row">
+                  <span className="spec-key">Behavior Profiles:</span>
+                  <span className="spec-val font-mono">
                     {systemData.database_status?.details?.persisted_profiles ?? 0}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* 3. CERT Dataset Availability */}
+            {/* 3. CERT r4.2 Raw Logs */}
             <div className="card component-card">
-              <div className="component-header">
-                <div className="component-title-box">
-                  <FileSpreadsheet size={18} className="component-icon text-amber" />
-                  <span className="component-name">CERT r4.2 Raw Logs</span>
+              <div className="component-top">
+                <div className="comp-title-group">
+                  <FileSpreadsheet size={17} className="text-amber" />
+                  <span className="comp-name">CERT r4.2 Raw Logs</span>
                 </div>
                 {getStatusBadge(systemData.dataset_status?.status)}
               </div>
-              <p className="component-msg">{systemData.dataset_status?.message}</p>
-              <div className="component-details-box">
-                <div className="detail-row">
-                  <span className="d-label">Target Directory:</span>
-                  <span className="d-val font-mono path-text">
-                    data/raw/r4.2/
-                  </span>
+              <p className="comp-desc text-muted">{systemData.dataset_status?.message}</p>
+              <div className="comp-specs">
+                <div className="spec-row">
+                  <span className="spec-key">Target Path:</span>
+                  <span className="spec-val font-mono path-text">data/raw/r4.2/</span>
                 </div>
-                <div className="detail-row">
-                  <span className="d-label">Core Files Found:</span>
-                  <span className="d-val font-mono">
+                <div className="spec-row">
+                  <span className="spec-key">Core Files Found:</span>
+                  <span className="spec-val font-mono">
                     {systemData.dataset_status?.details?.files_found?.length || 0} /{' '}
                     {systemData.dataset_status?.details?.expected_files?.length || 5}
                   </span>
+                </div>
+                <div className="spec-row">
+                  <span className="spec-key">Required:</span>
+                  <span className="spec-val text-muted">logon, device, file, email, http</span>
                 </div>
               </div>
             </div>
 
             {/* 4. Processing Pipeline */}
             <div className="card component-card">
-              <div className="component-header">
-                <div className="component-title-box">
-                  <Workflow size={18} className="component-icon text-teal" />
-                  <span className="component-name">Behavioral Aggregation Pipeline</span>
+              <div className="component-top">
+                <div className="comp-title-group">
+                  <Workflow size={17} className="text-teal" />
+                  <span className="comp-name">Behavioral Aggregation</span>
                 </div>
                 {getStatusBadge(systemData.pipeline_status?.status)}
               </div>
-              <p className="component-msg">{systemData.pipeline_status?.message}</p>
-              <div className="component-details-box">
-                <div className="detail-row">
-                  <span className="d-label">Unit of Analysis:</span>
-                  <span className="d-val">User-Day Behavioral Record</span>
+              <p className="comp-desc text-muted">{systemData.pipeline_status?.message}</p>
+              <div className="comp-specs">
+                <div className="spec-row">
+                  <span className="spec-key">Aggregation Unit:</span>
+                  <span className="spec-val">User-Day Behavioral Record</span>
                 </div>
-                <div className="detail-row">
-                  <span className="d-label">Baseline Type:</span>
-                  <span className="d-val">Personal Longitudinal Normal</span>
+                <div className="spec-row">
+                  <span className="spec-key">Baselines:</span>
+                  <span className="spec-val">Longitudinal Moving Statistics</span>
+                </div>
+                <div className="spec-row">
+                  <span className="spec-key">Leakage Control:</span>
+                  <span className="spec-val font-mono">Strict Train/Test Split</span>
                 </div>
               </div>
             </div>
 
             {/* 5. Detection Models */}
             <div className="card component-card">
-              <div className="component-header">
-                <div className="component-title-box">
-                  <Cpu size={18} className="component-icon text-purple" />
-                  <span className="component-name">ML & ANN Inference Artifacts</span>
+              <div className="component-top">
+                <div className="comp-title-group">
+                  <Cpu size={17} className="text-purple" />
+                  <span className="comp-name">Inference Model Weights</span>
                 </div>
                 {getStatusBadge(systemData.model_status?.status)}
               </div>
-              <p className="component-msg">{systemData.model_status?.message}</p>
-              <div className="component-details-box">
-                <div className="detail-row">
-                  <span className="d-label">XGBoost Classifier:</span>
-                  <span className="d-val">
-                    {systemData.model_status?.details?.xgboost_available ? 'Ready' : 'Pending Weights'}
+              <p className="comp-desc text-muted">{systemData.model_status?.message}</p>
+              <div className="comp-specs">
+                <div className="spec-row">
+                  <span className="spec-key">XGBoost Classifier:</span>
+                  <span className="spec-val">
+                    {systemData.model_status?.details?.xgboost_available ? 'Loaded' : 'Pending Weights'}
                   </span>
                 </div>
-                <div className="detail-row">
-                  <span className="d-label">Autoencoder:</span>
-                  <span className="d-val">
-                    {systemData.model_status?.details?.autoencoder_available ? 'Ready' : 'Pending Weights'}
+                <div className="spec-row">
+                  <span className="spec-key">Dense Autoencoder:</span>
+                  <span className="spec-val">
+                    {systemData.model_status?.details?.autoencoder_available ? 'Loaded' : 'Pending Weights'}
                   </span>
+                </div>
+                <div className="spec-row">
+                  <span className="spec-key">Artifacts Path:</span>
+                  <span className="spec-val font-mono path-text">backend/artifacts/</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Actionable Pipeline Guide */}
-          <div className="card pipeline-guide-card">
-            <h3 className="section-title">CERT r4.2 Ingestion & Training Instructions</h3>
+          <div className="card guide-card">
+            <h3 className="section-title">CERT r4.2 Data Pipeline Integration Protocol</h3>
             <p className="section-subtitle text-muted">
-              Follow these commands when the CERT Insider Threat Dataset r4.2 download completes:
+              Execution steps once the CERT Insider Threat Dataset r4.2 download finishes:
             </p>
 
-            <div className="guide-steps">
-              <div className="guide-step">
-                <span className="step-num font-mono">1</span>
-                <div className="step-content">
-                  <h4 className="step-heading">Extract Raw Logs to Target Directory</h4>
-                  <p className="step-desc">
-                    Extract the CERT archive directly into <code className="font-mono">data/raw/r4.2/</code>. Ensure <code className="font-mono">logon.csv</code>, <code className="font-mono">file.csv</code>, <code className="font-mono">device.csv</code>, <code className="font-mono">email.csv</code>, and <code className="font-mono">http.csv</code> are present.
+            <div className="protocol-steps">
+              <div className="protocol-step">
+                <div className="step-circle font-mono">1</div>
+                <div className="step-detail">
+                  <h4 className="step-title">Extract Raw Logs to Target Folder</h4>
+                  <p className="step-text text-muted">
+                    Extract CERT r4.2 CSV archives directly into <code className="code-chip">data/raw/r4.2/</code>. Verify that <code className="code-chip">logon.csv</code>, <code className="code-chip">file.csv</code>, <code className="code-chip">device.csv</code>, <code className="code-chip">email.csv</code>, and <code className="code-chip">http.csv</code> exist.
                   </p>
                 </div>
               </div>
 
-              <div className="guide-step">
-                <span className="step-num font-mono">2</span>
-                <div className="step-content">
-                  <h4 className="step-heading">Execute Feature Engineering & Aggregation</h4>
-                  <p className="step-desc">
-                    Aggregates daily events per user into user-day feature profiles and stores them in <code className="font-mono">data/processed/</code>.
+              <div className="protocol-step">
+                <div className="step-circle font-mono">2</div>
+                <div className="step-detail">
+                  <h4 className="step-title">Execute Preprocessing & User-Day Feature Aggregation</h4>
+                  <p className="step-text text-muted">
+                    Runs timestamp parsing, user mapping, session calculation, off-hours event filtering, and multi-source combinations. Persists aggregated profiles into <code className="code-chip">data/processed/</code> and the backend database.
                   </p>
                 </div>
               </div>
 
-              <div className="guide-step">
-                <span className="step-num font-mono">3</span>
-                <div className="step-content">
-                  <h4 className="step-heading">Train Detection Models</h4>
-                  <p className="step-desc">
-                    Trains the supervised XGBoost threat classifier on threat scenarios, fits the Dense Autoencoder on normal profiles, and establishes personal baselines. Model checkpoints are automatically written to <code className="font-mono">backend/artifacts/</code>.
+              <div className="protocol-step">
+                <div className="step-circle font-mono">3</div>
+                <div className="step-detail">
+                  <h4 className="step-title">Train Supervised ML & Neural Autoencoder</h4>
+                  <p className="step-text text-muted">
+                    Fits XGBoost on labeled threat scenarios, trains the Dense Autoencoder on benign activity to establish reconstruction error thresholds, and computes personal baselines. Model artifacts are saved to <code className="code-chip">backend/artifacts/</code>.
                   </p>
                 </div>
               </div>

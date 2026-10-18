@@ -1,64 +1,77 @@
 :root {
-  /* Neutral Palette - Slate & Charcoal Surfaces */
-  --bg-primary: #0f141c;
-  --bg-secondary: #161d27;
-  --bg-card: #1c2430;
-  --bg-card-hover: #222c3b;
-  --bg-input: #121820;
-  --bg-subtle: #232d3d;
+  /* Surface & Background Hierarchy - Warm Off-White & Crisp White */
+  --bg-app: #f8f9fa;
+  --bg-primary: #f8f9fa;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f1f5f9;
+  --bg-surface-inset: #f8fafc;
+  --bg-surface-active: #e2e8f0;
+  --bg-sidebar: #ffffff;
+  --bg-header: #ffffff;
 
   /* Borders & Dividers */
-  --border-subtle: #263345;
-  --border-strong: #37475e;
-  --border-focus: #4b678c;
+  --border-subtle: #edf2f7;
+  --border-default: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-focus: #0e7490;
 
-  /* Typography */
-  --text-primary: #e6edf5;
-  --text-secondary: #9cb0c9;
-  --text-muted: #677b95;
-  --text-inverse: #0b0f14;
+  /* Typography - Charcoal & Slate */
+  --text-primary: #0f172a;       /* Slate 900 */
+  --text-secondary: #334155;     /* Slate 700 */
+  --text-muted: #64748b;         /* Slate 500 */
+  --text-faint: #94a3b8;         /* Slate 400 */
+  --text-inverse: #ffffff;
 
-  /* Primary Accent - Muted Strategic Teal */
-  --accent-primary: #1e6b7b;
-  --accent-hover: #248094;
-  --accent-light: #2da1bb;
-  --accent-subtle: rgba(45, 161, 187, 0.12);
-  --accent-border: rgba(45, 161, 187, 0.28);
+  /* Primary Accent - Muted Strategic Deep Teal */
+  --accent-primary: #0e7490;     /* Cyan 700 */
+  --accent-hover: #155e75;       /* Cyan 800 */
+  --accent-light: #0891b2;       /* Cyan 600 */
+  --accent-subtle: #f0fdfa;      /* Teal 50 */
+  --accent-tint: rgba(14, 116, 144, 0.08);
+  --accent-border: rgba(14, 116, 144, 0.25);
 
-  /* Semantic Status Colors (Used sparingly for real risk) */
-  --risk-critical: #e04b4b;
-  --risk-critical-bg: rgba(224, 75, 75, 0.12);
-  --risk-critical-border: rgba(224, 75, 75, 0.3);
+  /* Semantic Status Colors - Restrained, Enterprise Palette */
+  --risk-critical: #991b1b;      /* Deep Red 800 */
+  --risk-critical-bg: #fef2f2;   /* Red 50 */
+  --risk-critical-border: #fecaca; /* Red 200 */
+  --risk-critical-text: #991b1b;
 
-  --risk-high: #e2753a;
-  --risk-high-bg: rgba(226, 117, 58, 0.12);
-  --risk-high-border: rgba(226, 117, 58, 0.3);
+  --risk-high: #c2410c;          /* Deep Orange 700 */
+  --risk-high-bg: #fff7ed;       /* Orange 50 */
+  --risk-high-border: #ffedd5;   /* Orange 200 */
+  --risk-high-text: #c2410c;
 
-  --risk-medium: #d99a26;
-  --risk-medium-bg: rgba(217, 154, 38, 0.12);
-  --risk-medium-border: rgba(217, 154, 38, 0.3);
+  --risk-medium: #b45309;        /* Warm Amber 700 */
+  --risk-medium-bg: #fffbeb;     /* Amber 50 */
+  --risk-medium-border: #fef3c7; /* Amber 200 */
+  --risk-medium-text: #b45309;
 
-  --risk-low: #36a36f;
-  --risk-low-bg: rgba(54, 163, 111, 0.12);
-  --risk-low-border: rgba(54, 163, 111, 0.3);
+  --risk-low: #15803d;           /* Forest Green 700 */
+  --risk-low-bg: #f0fdf4;        /* Green 50 */
+  --risk-low-border: #bbf7d0;    /* Green 200 */
+  --risk-low-text: #15803d;
 
-  --status-neutral: #8497ad;
-  --status-neutral-bg: rgba(132, 151, 173, 0.1);
+  --status-neutral: #475569;     /* Slate 600 */
+  --status-neutral-bg: #f8fafc;  /* Slate 50 */
+  --status-neutral-border: #e2e8f0;
 
   /* Typography Font Families */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace;
 
-  /* Layout Spacing */
+  /* Layout Dimensions */
   --sidebar-width: 250px;
   --sidebar-collapsed-width: 68px;
   --header-height: 56px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45);
+  /* Refined Subtle Box Shadows */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+  --shadow-drawer: -4px 0 20px rgba(15, 23, 42, 0.08);
 }
