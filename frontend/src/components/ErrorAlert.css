@@ -1,0 +1,32 @@
+.error-alert-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--risk-critical-bg);
+  border: 1px solid var(--risk-critical-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+}
+
+.error-alert-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.error-alert-icon {
+  color: var(--risk-critical);
+  flex-shrink: 0;
+}
+
+.error-alert-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.error-retry-btn {
+  flex-shrink: 0;
+}

@@ -1,0 +1,50 @@
+# API Contracts (v1)
+
+Base URL: `/api/v1`
+
+## Health & System
+- `GET /api/v1/health`
+  - Response: `{ status: "ok" | "degraded", database: "connected" | "disconnected", timestamp: string }`
+- `GET /api/v1/system/status`
+  - Response: Detailed operational status including database connectivity, CERT dataset file availability, processing pipeline readiness, and model readiness.
+
+## Dashboard
+- `GET /api/v1/dashboard/overview`
+  - Response: Aggregated statistics from persisted database records:
+    - `total_users`: integer
+    - `assessed_users`: integer
+    - `alerts_by_severity`: `{ critical: int, high: int, medium: int, low: int }`
+    - `risk_distribution`: `{ high: int, medium: int, low: int, unassessed: int }`
+    - `recent_alerts`: array of Alert objects
+    - `highest_risk_users`: array of User Risk summaries
+    - `dataset_ready`: boolean
+    - `models_ready`: boolean
+
+## Users & Investigation
+- `GET /api/v1/users`
+  - Query parameters: `page`, `page_size`, `search`, `department`, `min_risk`, `max_risk`, `sort_by`, `sort_dir`
+  - Response: Paginated list of users with latest risk score, assessment date, alert count.
+- `GET /api/v1/users/{user_id}`
+  - Response: User profile metadata, department, role, supervisor, active status.
+- `GET /api/v1/users/{user_id}/behavior`
+  - Query parameters: `start_date`, `end_date`
+  - Response: List of daily behavioral profiles (logons, file accesses, emails, devices, http).
+- `GET /api/v1/users/{user_id}/risk`
+  - Query parameters: `start_date`, `end_date`
+  - Response: Risk evaluation history, component breakdown (ML score, ANN score, Baseline deviation, Hybrid score, Risk level, Contributing factors).
+
+## Alerts & Triage
+- `GET /api/v1/alerts`
+  - Query parameters: `page`, `page_size`, `severity`, `status`, `search`, `start_date`, `end_date`
+  - Response: Paginated alerts with status, reason, risk score, detected timestamp.
+- `GET /api/v1/alerts/{alert_id}`
+  - Response: Alert details, evidence metrics, contributing factors, related user.
+- `PATCH /api/v1/alerts/{alert_id}`
+  - Request body: `{ status: "open" | "investigating" | "resolved" | "dismissed", notes?: string }`
+  - Response: Updated Alert object.
+
+## Models & Evaluation
+- `GET /api/v1/models/status`
+  - Response: Readiness, artifact paths, and versions for Random Forest, XGBoost, Autoencoder, and Hybrid Engine.
+- `GET /api/v1/models/evaluation`
+  - Response: Model evaluation results (precision, recall, f1, roc_auc, confusion matrix) when real experiments have been run; clear unavailable status otherwise.
