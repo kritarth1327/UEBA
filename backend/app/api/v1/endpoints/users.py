@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.schemas.user import UserPagination, UserDetail
 from app.schemas.behavior import UserBehaviorResponse
 from app.schemas.prediction import UserRiskHistoryResponse
+from app.schemas.baseline import UserBaselineResponse
 from app.services.user_service import UserService
 from app.services.behavior_service import BehaviorService
 from app.services.baseline_service import BaselineService
@@ -110,3 +111,27 @@ def get_user_risk(
         "history": history,
         "summary": summary
     }
+
+
+@router.get("/users/{user_id}/baseline", response_model=UserBaselineResponse, summary="Get user active personal baseline")
+def get_user_baseline(user_id: str, db: Session = Depends(get_db)):
+    user_service = UserService(db)
+    if not user_service.get_user_detail(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with identifier '{user_id}' was not found."
+        )
+
+    baseline_service = BaselineService(db)
+    baseline = baseline_service.get_user_baseline(user_id)
+    return {
+        "user_id": user_id,
+        "has_baseline": baseline is not None,
+        "baseline": baseline,
+        "message": (
+            "Active personal baseline calibrated."
+            if baseline
+            else "Personal baseline not yet calibrated. Requires a minimum of 14 observation days of ingested behavioral data."
+        )
+    }
+

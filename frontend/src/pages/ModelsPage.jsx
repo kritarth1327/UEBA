@@ -13,6 +13,7 @@ import {
   Zap,
   Sliders,
   Scale,
+  ArrowRight,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -77,6 +78,58 @@ export function ModelsPage() {
         </div>
       </div>
 
+      {/* Signal Flow Architecture */}
+      <div className="card pipeline-flow-card">
+        <div className="section-card-header" style={{ marginBottom: 4 }}>
+          <div>
+            <h3 className="section-title">Detection Signal Flow Architecture</h3>
+            <span className="section-subtitle text-muted">
+              End-to-end data processing path from raw enterprise logs to calibrated insider threat triage.
+            </span>
+          </div>
+        </div>
+
+        <div className="flow-container">
+          <div className="flow-step-node">
+            <div className="flow-step-title font-mono">Stage 1: Multi-Source Logs</div>
+            <div className="flow-step-desc">CERT r4.2 Activity Streams</div>
+            <div className="flow-step-sub text-muted font-mono">logon, device, file, email, http</div>
+          </div>
+
+          <ArrowRight size={16} className="flow-arrow" />
+
+          <div className="flow-step-node">
+            <div className="flow-step-title font-mono">Stage 2: Feature Aggregation</div>
+            <div className="flow-step-desc">User-Day Behavioral Matrix</div>
+            <div className="flow-step-sub text-muted font-mono">Session time, off-hours, volume</div>
+          </div>
+
+          <ArrowRight size={16} className="flow-arrow" />
+
+          <div className="flow-step-node">
+            <div className="flow-step-title font-mono">Stage 3: Detection Triad</div>
+            <div className="flow-step-desc">Supervised ML + ANN + Baseline</div>
+            <div className="flow-step-sub text-muted font-mono">0.45 ML • 0.35 ANN • 0.20 BL</div>
+          </div>
+
+          <ArrowRight size={16} className="flow-arrow" />
+
+          <div className="flow-step-node">
+            <div className="flow-step-title font-mono">Stage 4: Risk Calibration</div>
+            <div className="flow-step-desc">Calibrated Hybrid Threat Score</div>
+            <div className="flow-step-sub text-muted font-mono">Continuous [0 - 100] scale</div>
+          </div>
+
+          <ArrowRight size={16} className="flow-arrow" />
+
+          <div className="flow-step-node">
+            <div className="flow-step-title font-mono">Stage 5: Alert Generation</div>
+            <div className="flow-step-desc">Priority Triage & Investigation</div>
+            <div className="flow-step-sub text-muted font-mono">Threshold triggers ≥ 70</div>
+          </div>
+        </div>
+      </div>
+
       {/* Architecture Cards Grid */}
       <div className="models-grid">
         {/* Model 1: Random Forest Baseline */}
@@ -87,7 +140,7 @@ export function ModelsPage() {
             </div>
             <div>
               <h3 className="model-title">Random Forest Baseline</h3>
-              <span className="model-framework font-mono text-muted">Scikit-Learn 1.9.1 &bull; Baseline</span>
+              <span className="model-framework font-mono text-muted">Scikit-Learn 1.9.1 • Baseline</span>
             </div>
           </div>
           <p className="model-desc">
@@ -121,7 +174,7 @@ export function ModelsPage() {
             </div>
             <div>
               <h3 className="model-title">XGBoost Threat Classifier</h3>
-              <span className="model-framework font-mono text-muted">XGBoost 3.4.1 &bull; Signal 1</span>
+              <span className="model-framework font-mono text-muted">XGBoost 3.4.1 • Signal 1</span>
             </div>
           </div>
           <p className="model-desc">
@@ -155,7 +208,7 @@ export function ModelsPage() {
             </div>
             <div>
               <h3 className="model-title">Dense Autoencoder</h3>
-              <span className="model-framework font-mono text-muted">PyTorch 2.14.1 &bull; Signal 2</span>
+              <span className="model-framework font-mono text-muted">PyTorch 2.14.1 • Signal 2</span>
             </div>
           </div>
           <p className="model-desc">
@@ -164,11 +217,11 @@ export function ModelsPage() {
           <div className="model-specs">
             <div className="spec-row">
               <span className="spec-key">Architecture:</span>
-              <span className="spec-val font-mono">Dense(32 &rarr; 16 &rarr; 8 &rarr; 16 &rarr; 32)</span>
+              <span className="spec-val font-mono">Dense(32 → 16 → 8 → 16 → 32)</span>
             </div>
             <div className="spec-row">
               <span className="spec-key">Activations:</span>
-              <span className="spec-val font-mono">ReLU Hidden &bull; MSE Loss</span>
+              <span className="spec-val font-mono">ReLU Hidden • MSE Loss</span>
             </div>
             <div className="spec-row">
               <span className="spec-key">Signal Weight:</span>
@@ -202,7 +255,7 @@ export function ModelsPage() {
             </div>
             <div className="spec-row">
               <span className="spec-key">Classification:</span>
-              <span className="spec-val font-mono">High &ge; 70 &bull; Med &ge; 40 &bull; Low &lt; 40</span>
+              <span className="spec-val font-mono">High ≥ 70 • Med ≥ 40 • Low &lt; 40</span>
             </div>
             <div className="spec-row">
               <span className="spec-key">Explainability:</span>
@@ -210,7 +263,7 @@ export function ModelsPage() {
             </div>
             <div className="spec-row">
               <span className="spec-key">Status:</span>
-              <span className="spec-val text-teal font-medium">Engine Active &bull; Awaiting Inputs</span>
+              <span className="spec-val text-teal font-medium">Engine Active • Awaiting Inputs</span>
             </div>
           </div>
         </div>

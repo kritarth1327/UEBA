@@ -84,7 +84,7 @@ export function Header() {
             }`}
           />
           <span className="health-label font-mono">
-            {health.status === 'ok' ? 'API 1.0 &bull; LIVE' : 'CONNECTING'}
+            {health.status === 'ok' ? 'API 1.0 • LIVE' : 'CONNECTING'}
           </span>
         </Link>
 

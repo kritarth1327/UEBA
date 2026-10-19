@@ -1,7 +1,9 @@
+import json
 from datetime import date
 from app.models.user import User
 from app.models.behavior import DailyBehaviorProfile
 from app.models.prediction import ModelPrediction
+from app.models.baseline import PersonalBaseline
 
 
 def test_users_empty(client):
@@ -106,3 +108,42 @@ def test_user_behavior_and_risk(client, db_session):
     assert len(r_data["history"]) == 1
     assert r_data["latest_prediction"]["hybrid_risk_score"] == 76.4
     assert r_data["summary"]["max_risk_score"] == 76.4
+
+
+def test_user_baseline_endpoint(client, db_session):
+    user = User(user_id="BL_TEST01", employee_name="Baseline Target")
+    db_session.add(user)
+    db_session.commit()
+
+    # Empty baseline test
+    res = client.get("/api/v1/users/BL_TEST01/baseline")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["user_id"] == "BL_TEST01"
+    assert data["has_baseline"] is False
+    assert data["baseline"] is None
+    assert "not yet calibrated" in data["message"].lower()
+
+    # Add active baseline
+    metrics = {
+        "logon_count": {"mean": 2.5, "std": 0.8},
+        "removable_device_events": {"mean": 0.1, "std": 0.3}
+    }
+    baseline = PersonalBaseline(
+        user_id="BL_TEST01",
+        window_start=date(2026, 1, 1),
+        window_end=date(2026, 1, 30),
+        metrics_json=json.dumps(metrics),
+        sample_size=30,
+        is_active=True
+    )
+    db_session.add(baseline)
+    db_session.commit()
+
+    res_active = client.get("/api/v1/users/BL_TEST01/baseline")
+    assert res_active.status_code == 200
+    data_active = res_active.json()
+    assert data_active["has_baseline"] is True
+    assert data_active["baseline"]["sample_size"] == 30
+    assert data_active["baseline"]["metrics"]["logon_count"]["mean"] == 2.5
+

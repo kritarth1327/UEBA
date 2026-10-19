@@ -31,3 +31,11 @@ class BaselineComparisonItem(BaseModel):
     baseline_std: float
     z_score: float
     is_deviant: bool
+
+
+class UserBaselineResponse(BaseModel):
+    user_id: str
+    has_baseline: bool
+    baseline: Optional[PersonalBaselineRead] = None
+    message: str
+

@@ -45,3 +45,9 @@ pnpm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+# Generated model artifacts
+backend/artifacts/
+
+# Environment variants
+.env.*
+!.env.example
