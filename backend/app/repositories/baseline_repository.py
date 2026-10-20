@@ -30,7 +30,15 @@ class BaselineRepository:
         except Exception:
             metrics = {}
 
+        config = None
+        if b.config_json:
+            try:
+                config = json.loads(b.config_json)
+            except Exception:
+                config = None
+
         return {
+            "config": config,
             "id": b.id,
             "user_id": b.user_id,
             "window_start": b.window_start,

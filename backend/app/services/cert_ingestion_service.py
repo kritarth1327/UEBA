@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from app.core.config import settings
 from app.services.cert_identity_service import CERTIdentityService
 
 
@@ -12,7 +13,7 @@ class CERTIngestionService:
 
     def __init__(
         self,
-        dataset_dir: str = "data/raw/r4.2",
+        dataset_dir: str | Path = settings.CERT_R42_DIR,
         chunksize: int = 250_000,
         identity_service=None,
     ):

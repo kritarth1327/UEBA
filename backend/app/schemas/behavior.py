@@ -20,7 +20,10 @@ class DailyBehaviorProfileRead(BaseModel):
     http_after_hours_count: int
     removable_device_events: int
     total_session_duration: float
+    # Schema-named feature map; null = unavailable for this source (distinct from a real 0)
     features: Optional[Dict[str, Any]] = None
+    unavailable_features: List[str] = []
+    dataset_source: Optional[str] = None
     created_at: datetime
 
 

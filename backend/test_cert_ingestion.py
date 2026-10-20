@@ -3,10 +3,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from app.core.config import settings
 from app.services.cert_ingestion_service import CERTIngestionService
 
 
-DATASET_DIR = Path("data/raw/r4.2")
+DATASET_DIR = settings.CERT_R42_DIR
 
 
 def test_dataset_files_exist():

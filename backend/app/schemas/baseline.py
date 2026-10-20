@@ -9,6 +9,9 @@ class BaselineMetric(BaseModel):
     median: Optional[float] = None
     q25: Optional[float] = None
     q75: Optional[float] = None
+    n: Optional[int] = None
+    mad: Optional[float] = None
+    max: Optional[float] = None
 
 
 class PersonalBaselineRead(BaseModel):
@@ -22,6 +25,12 @@ class PersonalBaselineRead(BaseModel):
     sample_size: int
     is_active: bool
     calculated_at: datetime
+    config: Optional[Dict[str, Any]] = None
+
+
+class UserBaselineResponse(BaseModel):
+    has_baseline: bool
+    baseline: Optional[PersonalBaselineRead] = None
 
 
 class BaselineComparisonItem(BaseModel):

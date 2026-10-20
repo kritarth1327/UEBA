@@ -25,6 +25,10 @@ class ModelPredictionRead(BaseModel):
     contributing_factors: Optional[List[ContributingFactor]] = None
     model_version: str
     evaluated_at: datetime
+    # Per-component status/normalised score/effective weight/points; unavailable components are
+    # listed with status != "ok" (their score is null, NOT zero).
+    components: Optional[Dict[str, Any]] = None
+    config_version: Optional[str] = None
 
 
 class UserRiskHistoryResponse(BaseModel):

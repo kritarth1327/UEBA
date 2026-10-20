@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from app.core.config import settings
+
 
 class CERTIdentityService:
     """Resolve CERT identities using date-appropriate LDAP snapshots."""
@@ -19,7 +21,7 @@ class CERTIdentityService:
         "supervisor",
     ]
 
-    def __init__(self, ldap_dir: str = "data/raw/r4.2/LDAP"):
+    def __init__(self, ldap_dir: str | Path = settings.CERT_R42_DIR / "LDAP"):
         self.ldap_dir = Path(ldap_dir)
         self._snapshot_cache = {}
 

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.schemas.user import UserPagination, UserDetail
 from app.schemas.behavior import UserBehaviorResponse
+from app.schemas.baseline import UserBaselineResponse
 from app.schemas.prediction import UserRiskHistoryResponse
 from app.services.user_service import UserService
 from app.services.behavior_service import BehaviorService
@@ -69,6 +70,18 @@ def get_user_behavior(
         end_date=end_date,
         limit=limit
     )
+
+
+@router.get("/users/{user_id}/baseline", response_model=UserBaselineResponse, summary="Get a user's active personal baseline")
+def get_user_baseline(user_id: str, db: Session = Depends(get_db)):
+    if not UserService(db).get_user_detail(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with identifier '{user_id}' was not found."
+        )
+
+    baseline = BaselineService(db).get_user_baseline(user_id)
+    return {"has_baseline": baseline is not None, "baseline": baseline}
 
 
 @router.get("/users/{user_id}/risk", response_model=UserRiskHistoryResponse, summary="Get user risk assessment history")

@@ -28,10 +28,13 @@ class BehaviorRepository:
 
         profiles = []
         for p in results:
-            features = None
+            features, unavailable = None, []
             if p.features_json:
                 try:
-                    features = json.loads(p.features_json)
+                    payload = json.loads(p.features_json)
+                    # Flat name -> value map; unavailable features are null (never a fabricated 0)
+                    features = payload.get("features") if isinstance(payload.get("features"), dict) else payload
+                    unavailable = payload.get("unavailable_features", [])
                 except Exception:
                     features = None
 
@@ -51,6 +54,8 @@ class BehaviorRepository:
                 "removable_device_events": p.removable_device_events,
                 "total_session_duration": p.total_session_duration,
                 "features": features,
+                "unavailable_features": unavailable,
+                "dataset_source": p.dataset_source,
                 "created_at": p.created_at,
             })
         return profiles

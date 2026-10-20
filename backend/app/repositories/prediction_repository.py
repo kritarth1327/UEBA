@@ -8,6 +8,15 @@ from app.models.user import User
 from app.models.alert import Alert
 
 
+def _parse(raw):
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except Exception:
+        return None
+
+
 class PredictionRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -49,6 +58,8 @@ class PredictionRepository:
                 "contributing_factors": factors,
                 "model_version": p.model_version,
                 "evaluated_at": p.evaluated_at,
+                "components": _parse(p.components_json),
+                "config_version": p.config_version,
             })
         return predictions
 
@@ -81,6 +92,8 @@ class PredictionRepository:
             "contributing_factors": factors,
             "model_version": p.model_version,
             "evaluated_at": p.evaluated_at,
+            "components": _parse(p.components_json),
+            "config_version": p.config_version,
         }
 
     def get_highest_risk_users(self, limit: int = 5) -> List[dict]:

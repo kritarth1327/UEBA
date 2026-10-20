@@ -5,6 +5,7 @@ from app.models.baseline import PersonalBaseline
 from app.models.prediction import ModelPrediction
 from app.models.alert import Alert
 from app.models.model_metadata import ModelMetadata
+from app.models.ingestion import IngestionRun
 
 __all__ = [
     "Base",
@@ -14,4 +15,5 @@ __all__ = [
     "ModelPrediction",
     "Alert",
     "ModelMetadata",
+    "IngestionRun",
 ]

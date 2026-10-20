@@ -48,3 +48,14 @@ Base URL: `/api/v1`
   - Response: Readiness, artifact paths, and versions for Random Forest, XGBoost, Autoencoder, and Hybrid Engine.
 - `GET /api/v1/models/evaluation`
   - Response: Model evaluation results (precision, recall, f1, roc_auc, confusion matrix) when real experiments have been run; clear unavailable status otherwise.
+
+## Pipeline, baselines and risk (added)
+All JSON. Errors: 404 unknown user/file, 400 path outside raw dir/unsupported source, 422 validation.
+- `GET /features/schema` — shared feature contract.
+- `POST /pipeline/ingest` `{dataset:"spedia"|"cert_r42", path?, force?, cert_file_is_removable_copy?}` → ingestion report (rows read/accepted/rejected by reason, users, user_days, date_range, `unavailable_features`, `users_below_baseline_min_days`, label summary, `skipped` when the identical source+config was already ingested). `path` is relative to the raw data dir. Synchronous; use `scripts/run_pipeline.py` for very large inputs.
+- `POST /pipeline/baselines/generate` `{user_id?, as_of?}` → `{results:[{user_id,status,persisted,sample_size,window_*,unusable_features}], persisted, skipped}`.
+- `GET /users/{user_id}/baseline` → `{has_baseline, baseline}` for the user's active persisted baseline.
+- `POST /pipeline/score` `{user_id?, start_date?, end_date?}` → `{users_processed, days_scored, days_without_signal, predictions_written, alerts_upserted, errors}`.
+- `POST /risk/evaluate` `{user_id, date, features:{name:number|null}}` → `{assessed, hybrid_risk_score, risk_level, components[], unavailable_components[], contributing_factors[], baseline, config_version, config_provisional}`; nothing persisted; unknown feature names → 422.
+- `GET /risk/config`, `GET /pipeline/runs`, `GET /pipeline/summary`.
+- Changed: `GET /users/{id}/behavior` profiles now carry flat `features` (null = unavailable), `unavailable_features`, `dataset_source`; `GET /users/{id}/risk` predictions carry `components` and `config_version`; baseline metrics include `n`, `mad`, `max` and `config`.

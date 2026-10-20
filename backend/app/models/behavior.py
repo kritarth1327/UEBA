@@ -23,6 +23,11 @@ class DailyBehaviorProfile(Base):
     removable_device_events: Mapped[int] = mapped_column(Integer, default=0)
     total_session_duration: Mapped[float] = mapped_column(Float, default=0.0)
 
+    # Provenance and (where the source has them) event-level label counts. Labels are NEVER model inputs.
+    dataset_source: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    event_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    anomalous_event_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # JSON or serialized text for rich multi-source features
     features_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 

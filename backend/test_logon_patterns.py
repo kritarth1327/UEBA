@@ -3,8 +3,10 @@ from pathlib import Path
 
 import pandas as pd
 
+from app.core.config import settings
 
-LOGON_PATH = Path("data/raw/r4.2/logon.csv")
+
+LOGON_PATH = settings.CERT_R42_DIR / "logon.csv"
 
 
 def test_logon_event_patterns():

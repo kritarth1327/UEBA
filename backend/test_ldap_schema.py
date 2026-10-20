@@ -3,8 +3,10 @@ from pathlib import Path
 
 import pandas as pd
 
+from app.core.config import settings
 
-LDAP_DIR = Path("data/raw/r4.2/LDAP")
+
+LDAP_DIR = settings.CERT_R42_DIR / "LDAP"
 
 
 def test_ldap_schema():
