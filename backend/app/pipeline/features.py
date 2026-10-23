@@ -41,7 +41,7 @@ _ADDITIVE = [n for n in FEATURE_NAMES if n != "total_session_duration"]
 
 class DailyAggregator:
     def __init__(self, available: Iterable[str], bh: BusinessHours, has_labels: bool):
-        self.available: Set[str] = set(available)
+        self.available: Set[str] = available if isinstance(available, set) else set(available)
         self.bh = bh
         self.has_labels = has_labels
         self._acc: Optional[pd.DataFrame] = None
@@ -97,6 +97,10 @@ class DailyAggregator:
         for n in FEATURE_NAMES:
             if n not in self.available:
                 a[n] = np.nan
+
+        # Missing source features must remain unknown, not become zero.
+        if "file_copied_removable" not in self.available:
+            a["file_copied_removable"] = np.nan
         if not self.has_labels:
             a["anomalous_event_count"] = np.nan
         a["first_event_at"] = self._first
