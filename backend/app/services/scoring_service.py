@@ -31,6 +31,12 @@ class ScoringService:
     # ---- ad hoc (nothing persisted) ---------------------------------------------------------
     def assess_features(self, user_id: str, on: date, features: Dict[str, Optional[float]]) -> Optional[Dict[str, Any]]:
         base = self.baselines.evaluate(user_id, on, features)
+        if (
+            base.get("status") != "ok"
+            and self.ml is None
+            and self.ann is None
+        ):
+            return None
         result = self.engine.assess(features, base, self.ml, self.ann)
         if result is not None:
             result["baseline"] = {k: base.get(k) for k in ("status", "baseline_source", "aggregate_score", "sample_size")}
@@ -63,6 +69,14 @@ class ScoringService:
         for prof in self.db.scalars(q.order_by(DailyBehaviorProfile.date)).all():
             feats = features_of(prof)
             base = self.baselines.evaluate(uid, prof.date, feats, history)
+            if (
+                base.get("status") != "ok"
+                and self.ml is None
+                and self.ann is None
+            ):
+                summary["days_scored"] += 1
+                summary["days_without_signal"] += 1
+                continue
             res = self.engine.assess(feats, base, self.ml, self.ann)
             summary["days_scored"] += 1
             if res is None:

@@ -31,7 +31,7 @@ FEATURES: Tuple[FeatureSpec, ...] = (
     FeatureSpec("logon_count", "int", "events", "Successful logon / session-open events", (SPEDIA, CERT_R42), "logon_count"),
     FeatureSpec("after_hours_logons", "int", "events", "Logons outside business hours or on weekends", (SPEDIA, CERT_R42), "after_hours_logons"),
     FeatureSpec("failed_logon_count", "int", "events", "Failed authentication events", (SPEDIA,)),
-    FeatureSpec("file_access_count", "int", "events", "File access events (user-attributed)", (SPEDIA, CERT_R42), "file_access_count"),
+    FeatureSpec("file_access_count", "int", "events", "File access events (user-attributed)", (SPEDIA,), "file_access_count"),
     FeatureSpec("file_copied_removable", "int", "events", "File copies to removable media (only when the source documents this)", (), "file_copied_removable"),
     FeatureSpec("file_integrity_event_count", "int", "events", "Host file-integrity events (added/changed/deleted)", (SPEDIA,)),
     FeatureSpec("email_count", "int", "emails", "Emails sent", (SPEDIA, CERT_R42), "email_count"),

@@ -44,3 +44,36 @@ def client(db_session):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def test_model_artifacts_unavailable(monkeypatch):
+    """Keep integration tests independent of developer-local model artifacts."""
+    from app.services.model_interfaces import ScoreResult
+    from app.services.ml_threat_service import ml_threat_service
+    from app.services.ann_anomaly_service import ann_anomaly_service
+
+    monkeypatch.setattr(
+        ml_threat_service,
+        "score",
+        lambda features: ScoreResult.unavailable(
+            "ML model disabled for deterministic tests"
+        ),
+    )
+    monkeypatch.setattr(
+        ml_threat_service,
+        "is_available",
+        lambda: False,
+    )
+    monkeypatch.setattr(
+        ann_anomaly_service,
+        "score",
+        lambda features: ScoreResult.unavailable(
+            "ANN model disabled for deterministic tests"
+        ),
+    )
+    monkeypatch.setattr(
+        ann_anomaly_service,
+        "is_available",
+        lambda: False,
+    )

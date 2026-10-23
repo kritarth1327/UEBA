@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     models,
     system,
     pipeline,
+    cert_supervised,
 )
 
 api_router = APIRouter()
@@ -18,3 +19,4 @@ api_router.include_router(alerts.router, tags=["Alerts"])
 api_router.include_router(models.router, tags=["Models & Evaluation"])
 api_router.include_router(system.router, tags=["System & Pipeline"])
 api_router.include_router(pipeline.router, tags=["Pipeline, Baselines & Risk"])
+api_router.include_router(cert_supervised.router, tags=["CERT Supervised ML"])
