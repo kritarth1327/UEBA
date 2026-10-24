@@ -1,3 +1,4 @@
+
 """Scores persisted user-day profiles with the hybrid engine; persists predictions and alerts."""
 from __future__ import annotations
 
@@ -15,18 +16,26 @@ from app.models.prediction import ModelPrediction
 from app.services.baseline_service import BaselineService
 from app.services.hybrid_risk_service import HybridRiskService, hybrid_risk_service
 from app.services.model_interfaces import Scorer
+from app.services.cert_supervised_service import cert_supervised_service
 from app.services.profile_store import features_of, list_user_ids_with_profiles, load_user_history
 
 ALERT_SOURCE = "hybrid_risk"
 
 
 class ScoringService:
-    def __init__(self, db: Session, engine: Optional[HybridRiskService] = None,
-                 ml_scorer: Optional[Scorer] = None, ann_scorer: Optional[Scorer] = None):
+    def __init__(
+        self,
+        db: Session,
+        engine: Optional[HybridRiskService] = None,
+        ml_scorer: Optional[Scorer] = None,
+        ann_scorer: Optional[Scorer] = None,
+        cert_scorer: Optional[Scorer] = None,
+    ):
         self.db = db
         self.engine = engine or hybrid_risk_service
         self.baselines = BaselineService(db)
         self.ml, self.ann = ml_scorer, ann_scorer
+        self.cert = cert_scorer or cert_supervised_service
 
     # ---- ad hoc (nothing persisted) ---------------------------------------------------------
     def assess_features(self, user_id: str, on: date, features: Dict[str, Optional[float]]) -> Optional[Dict[str, Any]]:
@@ -35,9 +44,10 @@ class ScoringService:
             base.get("status") != "ok"
             and self.ml is None
             and self.ann is None
+            and not self.cert.is_available()
         ):
             return None
-        result = self.engine.assess(features, base, self.ml, self.ann)
+        result = self.engine.assess(features, base, self.ml, self.ann, self.cert)
         if result is not None:
             result["baseline"] = {k: base.get(k) for k in ("status", "baseline_source", "aggregate_score", "sample_size")}
         return result
@@ -73,11 +83,12 @@ class ScoringService:
                 base.get("status") != "ok"
                 and self.ml is None
                 and self.ann is None
+                and not self.cert.is_available()
             ):
                 summary["days_scored"] += 1
                 summary["days_without_signal"] += 1
                 continue
-            res = self.engine.assess(feats, base, self.ml, self.ann)
+            res = self.engine.assess(feats, base, self.ml, self.ann, self.cert)
             summary["days_scored"] += 1
             if res is None:
                 summary["days_without_signal"] += 1

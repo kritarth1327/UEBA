@@ -1,3 +1,4 @@
+
 import json
 from datetime import date
 
@@ -127,7 +128,10 @@ def test_scoring_is_point_in_time_and_flags_the_spike(db_session, raw_dir):
     assert spike.hybrid_risk_score > calm.hybrid_risk_score and spike.risk_level == "MEDIUM"
     assert spike.ml_threat_score is None and spike.ann_anomaly_score is None     # unavailable, not 0
     comps = json.loads(spike.components_json)
-    assert comps["unavailable_components"] == ["ml_threat", "ann_anomaly"] and comps["baseline_only_cap_applied"]
+    assert set(comps["unavailable_components"]) == {
+        "ml_threat", "ann_anomaly", "cert_supervised"
+    }
+    assert comps["baseline_only_cap_applied"]
     factors = json.loads(spike.contributing_factors_json)
     assert any(f["feature"] in ("email_external_count", "removable_device_events") for f in factors)
 

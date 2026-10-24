@@ -1,3 +1,4 @@
+
 import pytest
 
 from app.core.config import settings
@@ -30,9 +31,11 @@ def test_full_flow_ingest_baseline_score_then_read(client, raw):
     assert s["errors"] == [] and s["predictions_written"] > 0
 
     risk = client.get("/api/v1/users/alice/risk").json()
-    assert risk["latest_prediction"]["config_version"] == "risk-config-provisional-v1"
+    assert risk["latest_prediction"]["config_version"] == "risk-config-provisional-v2-cert-supervised"
     assert risk["latest_prediction"]["ml_threat_score"] is None
-    assert risk["latest_prediction"]["components"]["unavailable_components"] == ["ml_threat", "ann_anomaly"]
+    assert set(risk["latest_prediction"]["components"]["unavailable_components"]) == {
+        "ml_threat", "ann_anomaly", "cert_supervised"
+    }
 
     beh = client.get("/api/v1/users/alice/behavior").json()
     assert beh["total_days"] == 20 and beh["profiles"][0]["features"]["total_session_duration"] is None
@@ -67,7 +70,9 @@ def test_risk_evaluate_adhoc(client, raw):
     hi = client.post("/api/v1/risk/evaluate", json={"user_id": "bob", "date": "2025-04-01", "features": loud}).json()
     assert lo["assessed"] and hi["assessed"] and hi["hybrid_risk_score"] > lo["hybrid_risk_score"]
     assert hi["baseline"]["baseline_source"] == "persisted"
-    assert {c["name"] for c in hi["components"]} == {"ml_threat", "ann_anomaly", "baseline_deviation"}
+    assert {c["name"] for c in hi["components"]} == {
+        "ml_threat", "ann_anomaly", "baseline_deviation", "cert_supervised"
+    }
     # nothing persisted by ad hoc evaluation
     assert client.get("/api/v1/pipeline/summary").json()["predictions"] == 0
 
@@ -83,4 +88,7 @@ def test_risk_evaluate_validation_and_unknown_user(client, raw):
 
 def test_risk_config_endpoint_labels_provisional(client):
     c = client.get("/api/v1/risk/config").json()
-    assert c["config_provisional"] is True and set(c["weights"]) == {"ml_threat", "ann_anomaly", "baseline_deviation"}
+    assert c["config_provisional"] is True
+    assert set(c["weights"]) == {
+        "ml_threat", "ann_anomaly", "baseline_deviation", "cert_supervised"
+    }
