@@ -1,0 +1,8 @@
+{
+  "threshold": 0.11141300976276389,
+  "validation_percentile": 99.0,
+  "validation_profiles": 45105,
+  "validation_date_start": "2010-12-18",
+  "validation_date_end": "2011-03-02",
+  "method": "validation reconstruction-error percentile"
+}
