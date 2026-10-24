@@ -60,6 +60,9 @@ export function UserInvestigationPage() {
   const [behavior, setBehavior] = useState(null);
   const [riskData, setRiskData] = useState(null);
   const [alerts, setAlerts] = useState([]);
+  // Results from the trained dense autoencoder
+  const [annData, setAnnData] = useState(null);
+  const [annError, setAnnError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -95,6 +98,24 @@ export function UserInvestigationPage() {
       setBehavior(bRes);
       setRiskData(rRes);
       setAlerts(aRes?.items || []);
+      // Fetch ANN scores independently so ANN failures don't break
+      // the rest of the investigation page.
+      try {
+        const annRes = await api.getUserAnomalies(userId, {
+          start_date: startDate || undefined,
+          end_date: endDate || undefined,
+          limit: 1000,
+        });
+
+        setAnnData(annRes);
+        setAnnError(null);
+      } catch (annErr) {
+        setAnnData(null);
+        setAnnError(
+          annErr.message || 'Unable to retrieve ANN anomaly results.'
+        );
+        console.error('ANN anomaly request failed:', annErr);
+      }
 
       if (bRes?.profiles?.length > 0 && !selectedDayDate) {
         setSelectedDayDate(bRes.profiles[bRes.profiles.length - 1].date);
@@ -169,6 +190,18 @@ export function UserInvestigationPage() {
   const behaviorProfiles = behavior?.profiles || [];
   const riskHistory = riskData?.history || [];
 
+  // ANN results returned by the trained autoencoder
+  const annResults = annData?.results || [];
+
+  // Use the latest available result by date.
+  const latestAnn = [...annResults].sort((a, b) =>
+    String(b.date).localeCompare(String(a.date))
+  )[0] || null;
+
+  // Match the ANN score to the currently selected behavioral day.
+  const activeAnn = selectedDayDate
+    ? annResults.find((result) => result.date === selectedDayDate) || null
+    : latestAnn;
   // Selected day profile
   const activeProfile = selectedDayDate
     ? behaviorProfiles.find((p) => p.date === selectedDayDate) || behaviorProfiles[behaviorProfiles.length - 1]
@@ -363,14 +396,42 @@ export function UserInvestigationPage() {
           </div>
 
           <div className="signal-metric-area">
-            {latestPred?.ann_anomaly_score !== null && latestPred?.ann_anomaly_score !== undefined ? (
-              <div className="signal-metric-val font-mono">
-                {latestPred.ann_anomaly_score.toFixed(4)}
-              </div>
+            {latestAnn ? (
+              <>
+                <div className="signal-metric-val font-mono">
+                  {Number(latestAnn.ann_anomaly_score).toFixed(6)}
+                </div>
+
+                <div style={{ marginTop: 8 }}>
+                  <span
+                    className={`badge ${
+                      latestAnn.is_anomaly_candidate
+                        ? 'badge-critical'
+                        : 'badge-low'
+                    }`}
+                  >
+                    {latestAnn.is_anomaly_candidate
+                      ? 'Anomaly Candidate'
+                      : 'Below Threshold'}
+                  </span>
+                </div>
+
+                <div className="text-muted" style={{ marginTop: 8, fontSize: 12 }}>
+                  Threshold: {Number(latestAnn.threshold).toFixed(6)}
+                </div>
+
+                <div className="text-muted" style={{ marginTop: 4, fontSize: 12 }}>
+                  Observed: {formatDate(latestAnn.date)}
+                </div>
+              </>
             ) : (
               <div className="signal-unavailable-text">
                 <Clock size={13} />
-                <span>Unavailable (Awaiting Model Weights)</span>
+                <span>
+                  {annError
+                    ? 'ANN results unavailable'
+                    : 'No ANN results available'}
+                </span>
               </div>
             )}
           </div>
@@ -484,6 +545,108 @@ export function UserInvestigationPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        )}
+      </div>
+
+      {/* ANN Reconstruction Error Timeline */}
+      <div className="card section-card">
+        <div className="section-card-header">
+          <div>
+            <h3 className="section-title">
+              ANN Anomaly Detection Timeline
+            </h3>
+
+            <span className="section-subtitle text-muted">
+              Daily reconstruction errors compared against the trained model's
+              validation threshold.
+            </span>
+          </div>
+
+          {annData && (
+            <span className="badge badge-neutral">
+              {annData.anomaly_candidates} candidates
+            </span>
+          )}
+        </div>
+
+        {annError ? (
+          <div className="table-empty-notice text-muted">
+            {annError}
+          </div>
+        ) : annResults.length === 0 ? (
+          <div className="table-empty-notice text-muted">
+            No ANN results available for the selected period.
+          </div>
+        ) : (
+          <>
+            <div style={{ height: 260, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={[...annResults].sort((a, b) =>
+                    String(a.date).localeCompare(String(b.date))
+                  )}
+                  margin={{ top: 10, right: 24, left: 12, bottom: 0 }}
+                  onClick={(event) => {
+                    if (event?.activeLabel) {
+                      setSelectedDayDate(event.activeLabel);
+                    }
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#edf2f7" />
+
+                  <XAxis
+                    dataKey="date"
+                    stroke="#94a3b8"
+                    fontSize={11}
+                    tickFormatter={formatDate}
+                  />
+
+                  <YAxis
+                    stroke="#94a3b8"
+                    fontSize={11}
+                    domain={[0, 'auto']}
+                  />
+
+                  <Tooltip
+                    labelFormatter={(date) => `Date: ${formatDate(date)}`}
+                    formatter={(value, name) => [
+                      Number(value).toFixed(6),
+                      name,
+                    ]}
+                  />
+
+                  <Legend />
+
+                  <Line
+                    type="monotone"
+                    dataKey="ann_anomaly_score"
+                    name="Reconstruction Error"
+                    stroke="#7c3aed"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 5 }}
+                  />
+
+                  <Line
+                    type="monotone"
+                    dataKey="threshold"
+                    name="Detection Threshold"
+                    stroke="#c2410c"
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                    dot={false}
+                    activeDot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <p className="text-muted" style={{ fontSize: 12, marginTop: 12 }}>
+              Profiles above the threshold are anomaly candidates, not
+              confirmed malicious activity. Select a date on the chart to
+              inspect that day's behavioral profile.
+            </p>
+          </>
         )}
       </div>
 
