@@ -88,12 +88,35 @@ class SystemService:
             pipeline_msg = f"Profiles aggregated: {db_details.get('persisted_profiles')} daily records."
 
         # 4. Model Artifact check
-        models_ready = ml_threat_service.is_available() and ann_anomaly_service.is_available()
-        model_status = "ready" if models_ready else "unavailable"
-        model_msg = "Detection models loaded and ready for inference." if models_ready else "Model weights not found in artifacts/. Awaiting training."
+        xgboost_available = ml_threat_service.is_available()
+        autoencoder_available = ann_anomaly_service.is_available()
+
+        if xgboost_available and autoencoder_available:
+            model_status = "ready"
+            model_msg = (
+                "XGBoost and Dense Autoencoder are loaded and ready for inference."
+            )
+        elif autoencoder_available:
+            model_status = "partial"
+            model_msg = (
+                "Dense Autoencoder is loaded and ready for anomaly detection. "
+                "XGBoost classifier weights are unavailable."
+            )
+        elif xgboost_available:
+            model_status = "partial"
+            model_msg = (
+                "XGBoost classifier is loaded. "
+                "Dense Autoencoder weights are unavailable."
+            )
+        else:
+            model_status = "unavailable"
+            model_msg = "No detection model weights are available."
+
+        models_ready = xgboost_available and autoencoder_available
+
         model_details = {
-            "xgboost_available": ml_threat_service.is_available(),
-            "autoencoder_available": ann_anomaly_service.is_available(),
+            "xgboost_available": xgboost_available,
+            "autoencoder_available": autoencoder_available,
             "artifacts_directory": str(settings.MODELS_DIR)
         }
 
