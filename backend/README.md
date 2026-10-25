@@ -68,6 +68,32 @@ python -m uvicorn app.main:app --port 8000
 Raw data stays out of Git (`data/raw/*` is ignored). To use the API ingest endpoint, place the file at `data/raw/spedia/` (or set `SPEDIA_FILE`).
 See `docs/dataset_selection.md`, `docs/integration_contracts.md`, `docs/baselines.md`, `docs/risk_engine.md`.
 
+The API can run ingestion, scoring, prediction persistence, and alert upserts in
+one explicit operation by sending `"score_after_ingest": true` to
+`POST /api/v1/pipeline/ingest`. The default remains `false` for compatibility.
+For CERT profiles, unavailable `total_session_duration` is preserved as
+unavailable in the stored feature payload but is explicitly zero-filled at the
+ANN scoring boundary before `log1p` and the saved scaler. Other missing or
+non-finite ANN features remain errors. This zero policy is a candidate
+assumption, not a claim about historical training.
+
+### Reproducible ANN candidate training
+
+The missing historical ANN training program is not reproduced. The replacement
+trainer matches the production dense-autoencoder architecture and feature order,
+uses chronological splits, fits `log1p` and `StandardScaler` on training rows
+only, early-stops on validation loss, and calibrates the threshold from the
+validation 99th percentile only. `total_session_duration` is unavailable in the
+CERT feature table, so training requires an explicit policy; historical handling
+is unknown. Candidate outputs are written under `backend/ann_candidates/`, never
+to `backend/artifacts/`.
+
+For example, after dependencies are installed:
+
+```powershell
+python backend/scripts/train_dense_autoencoder.py --total-session-duration-policy zero
+```
+
 The demonstrated local workflow uses `logs_SPEDIA_annotated_en.csv`, which
 produces 13 normalized users and 181 user-day profiles in the included local
 demonstration database. The separate CERT supervised model is trained and

@@ -47,6 +47,19 @@ def test_full_flow_ingest_baseline_score_then_read(client, raw):
     assert client.get("/api/v1/dashboard/overview").json()["assessed_users"] == 2
 
 
+def test_ingest_can_run_scoring_and_alerts_end_to_end(client, raw):
+    response = client.post(
+        "/api/v1/pipeline/ingest",
+        json={"dataset": "spedia", "score_after_ingest": True},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["scoring"]["errors"] == []
+    assert body["scoring"]["days_scored"] == 40
+    assert body["scoring"]["predictions_written"] > 0
+    assert client.get("/api/v1/alerts").json()["total"] >= 1
+
+
 def test_ingest_errors_are_meaningful(client, raw):
     assert client.post("/api/v1/pipeline/ingest", json={"dataset": "bogus"}).status_code == 422
     assert client.post("/api/v1/pipeline/ingest", json={"dataset": "spedia", "path": "nope.csv"}).status_code == 404

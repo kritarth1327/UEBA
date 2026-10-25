@@ -15,10 +15,10 @@ pandas>=2.2.0
 
 # Machine Learning & Deep Learning (Integration Boundary)
 # Installed and compatible on Python 3.14.7:
-# scikit-learn>=1.6.0
+scikit-learn>=1.6.0
 # The CERT artifact was trained with XGBoost 3.4.1.
 xgboost==3.4.1
-# torch>=2.5.0
+torch>=2.5.0
 
 # Testing & Utilities
 pytest>=8.3.0

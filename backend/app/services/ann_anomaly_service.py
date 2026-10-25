@@ -33,6 +33,11 @@ FEATURES = [
     "removable_device_events",
     "total_session_duration",
 ]
+ANN_DURATION_POLICY = "zero"
+ANN_DURATION_ASSUMPTION = (
+    "Missing total_session_duration is explicitly replaced with zero before "
+    "log1p preprocessing; this is a candidate assumption, not historical behavior."
+)
 
 
 if nn is not None:
@@ -345,12 +350,22 @@ class ANNAnomalyService:
                 value = features.get(name)
 
                 if value is None:
-                    return ScoreResult.error(
-                        f"Required ANN feature is missing: {name}",
-                        self.version,
-                    )
+                    if name == "total_session_duration" and ANN_DURATION_POLICY == "zero":
+                        value = 0.0
+                    else:
+                        return ScoreResult.error(
+                            f"Required ANN feature is missing: {name}",
+                            self.version,
+                        )
 
                 numeric_value = float(value)
+
+                if (
+                    name == "total_session_duration"
+                    and math.isnan(numeric_value)
+                    and ANN_DURATION_POLICY == "zero"
+                ):
+                    numeric_value = 0.0
 
                 if not math.isfinite(numeric_value):
                     return ScoreResult.error(
@@ -421,7 +436,11 @@ class ANNAnomalyService:
             "preprocessing": (
                 self._preprocessing
                 if self._error_fn is not None
-                else ["log1p", "saved StandardScaler"]
+                else {
+                    "steps": ["log1p", "saved StandardScaler"],
+                    "total_session_duration_policy": ANN_DURATION_POLICY,
+                    "total_session_duration_assumption": ANN_DURATION_ASSUMPTION,
+                }
             ),
             "message": (
                 "Autoencoder, scaler, and threshold loaded; inference available."

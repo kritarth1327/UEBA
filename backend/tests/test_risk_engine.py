@@ -207,3 +207,40 @@ def test_ann_service_calibration_and_preprocessing():
     assert seen["v"] == [1.0, 2.0]
     assert ANNAnomalyService(error_fn=lambda v: 9.9, meta=meta).score({"logon_count": 3.0}).status == ScoreStatus.ERROR  # NaN input
     assert ANNAnomalyService(error_fn=lambda v: 0.1, meta={**meta, "threshold": None}).score({}).status == ScoreStatus.UNAVAILABLE
+
+
+def test_ann_service_zero_imputes_only_missing_duration():
+    feature_names = [
+        "logon_count",
+        "after_hours_logons",
+        "file_copied_removable",
+        "email_count",
+        "email_external_count",
+        "email_attachment_count",
+        "http_request_count",
+        "http_after_hours_count",
+        "removable_device_events",
+        "total_session_duration",
+    ]
+    seen = {}
+
+    def predict_error(values):
+        seen["values"] = values
+        return 0.1
+
+    svc = ANNAnomalyService(
+        error_fn=predict_error,
+        meta={
+            "schema_version": SCHEMA_VERSION,
+            "feature_names": feature_names,
+            "threshold": 0.2,
+            "preprocessing": {"log1p": False},
+        },
+    )
+    result = svc.score({name: 1.0 for name in feature_names[:-1]})
+    assert result.status == ScoreStatus.OK
+    assert seen["values"][-1] == 0.0
+
+    bad = {name: 1.0 for name in feature_names}
+    bad["email_count"] = None
+    assert svc.score(bad).status == ScoreStatus.ERROR

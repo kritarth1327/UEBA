@@ -92,6 +92,18 @@ export const api = {
       signal,
     }),
   getRiskConfig: (signal) => request('/risk/config', { signal }),
+  ingestPipeline: (data, signal) =>
+    request('/pipeline/ingest', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+    }),
+  scorePipeline: (data = {}, signal) =>
+    request('/pipeline/score', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+    }),
 
   // Alerts
   getAlerts: (params, signal) => request('/alerts', { params, signal }),

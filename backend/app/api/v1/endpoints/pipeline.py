@@ -26,8 +26,15 @@ def get_feature_schema():
 @router.post("/pipeline/ingest", response_model=IngestionReport, summary="Ingest a dataset (admin operation; use the CLI for very large files)")
 def ingest(req: IngestRequest, db: Session = Depends(get_db)):
     try:
-        return IngestionService(db).ingest(req.dataset, req.path, req.force,
-                                           cert_file_is_removable_copy=req.cert_file_is_removable_copy)
+        report = IngestionService(db).ingest(
+            req.dataset,
+            req.path,
+            req.force,
+            cert_file_is_removable_copy=req.cert_file_is_removable_copy,
+        )
+        if req.score_after_ingest:
+            report["scoring"] = ScoringService(db).score_range()
+        return report
     except IngestionError as e:
         code = status.HTTP_404_NOT_FOUND if "not found" in str(e) else status.HTTP_400_BAD_REQUEST
         raise HTTPException(status_code=code, detail=str(e))

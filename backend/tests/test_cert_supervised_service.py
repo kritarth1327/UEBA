@@ -65,7 +65,7 @@ def test_repository_cert_artifact_is_available_and_uses_training_order():
     assert service.metadata["metrics"]["xgboost"]["features"] == service.FEATURE_NAMES
 
 
-def test_missing_ann_feature_is_not_fabricated():
+def test_ann_missing_duration_uses_explicit_zero_policy():
     from app.services.ann_anomaly_service import ANNAnomalyService
 
     service = ANNAnomalyService(
@@ -90,5 +90,10 @@ def test_missing_ann_feature_is_not_fabricated():
 
     result = service.score(valid_features())
 
+    assert result.status == ScoreStatus.OK
+
+    features = valid_features()
+    features.pop("email_count")
+    result = service.score(features)
     assert result.status == ScoreStatus.ERROR
-    assert "total_session_duration" in result.detail
+    assert "email_count" in result.detail
