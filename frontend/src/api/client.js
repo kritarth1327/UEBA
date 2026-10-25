@@ -86,6 +86,12 @@ export const api = {
     request(`/users/${encodeURIComponent(userId)}/behavior`, { params, signal }),
   getUserRisk: (userId, params, signal) =>
     request(`/users/${encodeURIComponent(userId)}/risk`, { params, signal }),
+  getUserBaselineDeviation: (userId, date, signal) =>
+    request(`/users/${encodeURIComponent(userId)}/baseline/deviation`, {
+      params: { on: date },
+      signal,
+    }),
+  getRiskConfig: (signal) => request('/risk/config', { signal }),
 
   // Alerts
   getAlerts: (params, signal) => request('/alerts', { params, signal }),

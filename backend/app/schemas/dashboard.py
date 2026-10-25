@@ -54,4 +54,5 @@ class DashboardOverviewResponse(BaseModel):
     highest_risk_users: List[HighRiskUserItem]
     dataset_ready: bool
     models_ready: bool
+    model_status: str = "unavailable"
     last_evaluated_at: Optional[datetime] = None

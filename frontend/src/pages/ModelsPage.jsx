@@ -57,6 +57,10 @@ export function ModelsPage() {
   const models = statusData?.models || [];
   const evaluations = evalData?.evaluations || [];
   const hasEvaluations = evalData?.status === 'ready';
+  const modelStatus = (name) => models.find((model) => model.model_name === name);
+  const xgboost = modelStatus('XGBoost Supervised Threat Classifier');
+  const ann = modelStatus('Dense Autoencoder Anomaly Detector');
+  const cert = modelStatus('CERT Supervised Classifier');
 
   return (
     <div className="models-page">
@@ -71,8 +75,10 @@ export function ModelsPage() {
         <div className="models-status-pill font-mono">
           {statusData?.all_models_ready ? (
             <span className="badge badge-low">All Inference Engines Active</span>
+          ) : statusData?.pipeline_ready ? (
+            <span className="badge badge-medium">Partial Inference Available</span>
           ) : (
-            <span className="badge badge-neutral">Pipeline Awaiting Model Training</span>
+            <span className="badge badge-critical">No Inference Engines Available</span>
           )}
         </div>
       </div>
@@ -108,7 +114,7 @@ export function ModelsPage() {
             </div>
             <div className="spec-row">
               <span className="spec-key">Readiness:</span>
-              <span className="spec-val text-muted">Awaiting CERT training split</span>
+              <span className="spec-val text-muted">Reference artifact unavailable</span>
             </div>
           </div>
         </div>
@@ -138,11 +144,49 @@ export function ModelsPage() {
             </div>
             <div className="spec-row">
               <span className="spec-key">Signal Weight:</span>
-              <span className="spec-val font-mono font-bold text-teal">0.45 (45%)</span>
+              <span className="spec-val font-mono font-bold text-teal">0.3825 (38.25%)</span>
             </div>
             <div className="spec-row">
               <span className="spec-key">Readiness:</span>
-              <span className="spec-val text-muted">Awaiting CERT training split</span>
+              <span className={`spec-val ${xgboost?.is_ready ? 'text-teal' : 'text-muted'}`}>
+                {xgboost?.is_ready ? 'Loaded and ready' : 'Unavailable'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Model 3: CERT Supervised Classifier */}
+        <div className="card model-card">
+          <div className="model-card-header">
+            <div className="model-icon-box">
+              <Shield size={19} className="text-amber" />
+            </div>
+            <div>
+              <h3 className="model-title">CERT Supervised Classifier</h3>
+              <span className="model-framework font-mono text-muted">XGBoost 3.4.1 &bull; CERT r4.2</span>
+            </div>
+          </div>
+          <p className="model-desc">
+            CERT-specific incident-window proxy classifier. Scores only profiles containing its complete 11-feature input contract.
+          </p>
+          <div className="model-specs">
+            <div className="spec-row">
+              <span className="spec-key">Role:</span>
+              <span className="spec-val">CERT Supervised Signal</span>
+            </div>
+            <div className="spec-row">
+              <span className="spec-key">Signal Weight:</span>
+              <span className="spec-val font-mono font-bold text-teal">0.15 (15%)</span>
+            </div>
+            <div className="spec-row">
+              <span className="spec-key">Readiness:</span>
+              <span className={`spec-val ${cert?.is_ready ? 'text-teal' : 'text-muted'}`}>
+                {cert?.is_ready ? 'Loaded and ready' : 'Unavailable'}
+              </span>
+            </div>
+            <div className="spec-row">
+              <span className="spec-key">Label caveat:</span>
+              <span className="spec-val text-muted">Incident-window proxy labels</span>
             </div>
           </div>
         </div>
@@ -172,11 +216,13 @@ export function ModelsPage() {
             </div>
             <div className="spec-row">
               <span className="spec-key">Signal Weight:</span>
-              <span className="spec-val font-mono font-bold text-teal">0.35 (35%)</span>
+              <span className="spec-val font-mono font-bold text-teal">0.2975 (29.75%)</span>
             </div>
             <div className="spec-row">
               <span className="spec-key">Readiness:</span>
-              <span className="spec-val text-muted">Awaiting benign profile training</span>
+              <span className={`spec-val ${ann?.is_ready ? 'text-teal' : 'text-muted'}`}>
+                {ann?.is_ready ? 'Loaded and ready' : 'Unavailable for profiles missing required features'}
+              </span>
             </div>
           </div>
         </div>
@@ -210,7 +256,9 @@ export function ModelsPage() {
             </div>
             <div className="spec-row">
               <span className="spec-key">Status:</span>
-              <span className="spec-val text-teal font-medium">Engine Active &bull; Awaiting Inputs</span>
+              <span className="spec-val text-teal font-medium">
+                {statusData?.pipeline_ready ? 'Partial fusion active' : 'Unavailable'}
+              </span>
             </div>
           </div>
         </div>
@@ -222,11 +270,11 @@ export function ModelsPage() {
           <div>
             <h3 className="section-title">Experimental Evaluation Matrix</h3>
             <p className="section-subtitle text-muted">
-              Performance metrics measured strictly on reserved test splits against ground-truth CERT insider threat scenario labels.
+              Performance metrics are measured on reserved CERT test splits using incident-window proxy labels; they do not establish validated real-world insider-threat detection performance.
             </p>
           </div>
           <span className={`badge ${hasEvaluations ? 'badge-low' : 'badge-neutral'}`}>
-            {hasEvaluations ? 'Evaluated' : 'Evaluation Pending'}
+            {hasEvaluations ? 'Metrics available' : 'Evaluation unavailable'}
           </span>
         </div>
 
@@ -234,9 +282,9 @@ export function ModelsPage() {
           <div className="eval-pending-box">
             <AlertCircle size={20} className="pending-icon text-muted" />
             <div className="pending-content">
-              <h4 className="pending-heading">No Model Evaluations Recorded Yet</h4>
+              <h4 className="pending-heading">No Model Evaluation Metrics Available</h4>
               <p className="pending-text text-muted">
-                In strict adherence to experimental research integrity, evaluation metrics (Accuracy, Precision, Recall, F1 Score, ROC-AUC, PR-AUC, Confusion Matrix) are populated exclusively from verified test runs against the CERT Insider Threat Dataset r4.2. No fabricated or hypothetical metrics are presented.
+                In strict adherence to experimental research integrity, metrics are populated only from reserved CERT test runs using incident-window proxy labels. They are not validated real-world insider-threat performance claims, and no fabricated or hypothetical metrics are presented.
               </p>
             </div>
           </div>

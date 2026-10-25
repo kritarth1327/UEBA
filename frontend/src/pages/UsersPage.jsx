@@ -203,7 +203,7 @@ export function UsersPage() {
           description={
             searchInput || department
               ? 'No entities match your search term or department filter.'
-              : 'No enterprise users have been ingested yet. The CERT dataset r4.2 is awaiting download and pipeline processing.'
+              : 'No enterprise users have been ingested yet. Place a supported dataset in the configured raw-data directory and run the ingestion pipeline.'
           }
           actionLabel={searchInput || department ? 'Clear Filters' : 'Check Ingestion Status'}
           onAction={searchInput || department ? clearFilters : () => navigate('/system')}
@@ -249,7 +249,9 @@ export function UsersPage() {
                     <td>{user.department || '—'}</td>
                     <td className="text-muted">{user.role || '—'}</td>
                     <td className="font-mono font-bold">
-                      {formatRiskScore(user.latest_risk_score)}
+                      {user.latest_assessment_date
+                        ? formatRiskScore(user.latest_risk_score)
+                        : 'Unassessed'}
                     </td>
                     <td>
                       <span className={`badge ${getRiskBadgeClass(user.latest_risk_level)}`}>

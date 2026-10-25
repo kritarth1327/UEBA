@@ -94,7 +94,7 @@ export function DashboardPage() {
             }`}
           >
             <Database size={13} />
-            <span>Dataset: {data?.dataset_ready ? 'Ingested' : 'CERT r4.2 Ingestion Pending'}</span>
+            <span>Dataset: {data?.dataset_ready ? 'Ingested' : 'Ingestion pending'}</span>
           </div>
 
           <div
@@ -103,7 +103,14 @@ export function DashboardPage() {
             }`}
           >
             <Cpu size={13} />
-            <span>Inference: {data?.models_ready ? 'Online' : 'Awaiting Model Weights'}</span>
+            <span>
+              Inference:{' '}
+              {data?.model_status === 'ready'
+                ? 'All components online'
+                : data?.model_status === 'partial'
+                ? 'Partial scoring online'
+                : 'Unavailable'}
+            </span>
           </div>
         </div>
       </div>
@@ -166,9 +173,9 @@ export function DashboardPage() {
               <Layers size={16} className="text-teal" />
             </div>
           </div>
-          <div className="kpi-value font-mono">3 Signals</div>
+          <div className="kpi-value font-mono">4 Components</div>
           <div className="kpi-subtext text-muted">
-            XGBoost + Dense Autoencoder + Baselines
+            General ML + CERT + ANN + Baseline
           </div>
         </div>
       </div>
@@ -176,8 +183,8 @@ export function DashboardPage() {
       {!hasData ? (
         <EmptyState
           icon={FileSpreadsheet}
-          title="CERT Insider Threat Dataset r4.2 Ingestion Pending"
-          description="The backend database is initialized with all schemas and API endpoints. Once the CERT r4.2 download completes, extract the CSV files to data/raw/r4.2/ and execute the ingestion pipeline to populate telemetry."
+          title="Behavioral Dataset Ingestion Pending"
+          description="No user-day behavioral profiles are currently persisted. Ingest one of the supported datasets, then run baseline generation and scoring to populate telemetry."
           actionLabel="View System & Dataset Diagnostics"
           onAction={() => navigate('/system')}
         />

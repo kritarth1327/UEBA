@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.repositories.evaluation_repository import EvaluationRepository
 from app.services.ml_threat_service import ml_threat_service
 from app.services.ann_anomaly_service import ann_anomaly_service
+from app.services.cert_supervised_service import cert_supervised_service
 from app.services.hybrid_risk_service import hybrid_risk_service
 
 
@@ -100,6 +101,16 @@ class ModelEvaluationService:
             },
             {
                 "id": 4,
+                "model_name": "CERT Supervised Classifier",
+                "record_key": "CERT Supervised Classifier",
+                "version": "cert-r42-xgboost-v1",
+                "artifact": "cert_supervised/xgboost.joblib",
+                "ready": cert_supervised_service.is_available(),
+                "metrics_key": "cert_supervised",
+                "notes": "CERT incident-window proxy labels; not validated insider-threat ground truth.",
+            },
+            {
+                "id": 5,
                 "model_name": "Hybrid Risk Engine",
                 "record_key": "Hybrid Risk Engine",
                 "version": "v2.0.0",
@@ -163,11 +174,24 @@ class ModelEvaluationService:
                 }
             )
 
-        pipeline_ready = all(model["is_ready"] for model in models)
+        inference_ready = any(
+            model["is_ready"]
+            for model in models
+            if model["model_name"] != "Hybrid Risk Engine"
+        )
+        pipeline_ready = inference_ready
+        all_models_ready = all(
+            model["is_ready"]
+            for model in models
+            if model["model_name"] not in {
+                "Random Forest Baseline",
+                "Hybrid Risk Engine",
+            }
+        )
         return {
             "models": models,
             "pipeline_ready": pipeline_ready,
-            "all_models_ready": pipeline_ready,
+            "all_models_ready": all_models_ready,
         }
 
     def get_evaluation_results(self) -> Dict[str, Any]:
@@ -179,6 +203,7 @@ class ModelEvaluationService:
             ("Random Forest Baseline", "random_forest", False),
             ("XGBoost Classifier", "xgboost", ml_threat_service.is_available()),
             ("Dense Autoencoder", None, ann_anomaly_service.is_available()),
+            ("CERT Supervised Classifier", "cert_supervised", cert_supervised_service.is_available()),
             ("Hybrid Risk Engine", None, hybrid_risk_service.is_available()),
         ]
 
@@ -189,9 +214,8 @@ class ModelEvaluationService:
         for model_name, metrics_key, is_available in definitions:
             record = record_map.get(model_name, {})
             metrics = record.get("metrics")
-
-            # File-level metrics alone do not establish a recorded,
-            # validated insider-threat evaluation.
+            if metrics is None and metrics_key:
+                metrics = file_metrics.get("models", {}).get(metrics_key)
 
             if metrics:
                 has_evaluations = True
@@ -220,7 +244,7 @@ class ModelEvaluationService:
                     **mapped,
                     "threshold": record.get("threshold", 0.5),
                     "evaluated_at": evaluated_at,
-                    "is_available": bool(metrics),
+                    "is_available": bool(metrics) or is_available,
                 }
             )
 

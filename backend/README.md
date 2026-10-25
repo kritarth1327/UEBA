@@ -43,6 +43,11 @@ backend/
    ```
 4. Access the interactive API docs at `http://127.0.0.1:8000/docs`.
 
+The default `LOCAL_ONLY=true` setting rejects non-local client connections. This
+MVP has no authentication layer; do not set `LOCAL_ONLY=false` or expose the
+service through a network boundary without adding authentication and access
+controls.
+
 ## Running Tests
 
 Execute the comprehensive test suite with:
@@ -62,3 +67,9 @@ python -m uvicorn app.main:app --port 8000
 ```
 Raw data stays out of Git (`data/raw/*` is ignored). To use the API ingest endpoint, place the file at `data/raw/spedia/` (or set `SPEDIA_FILE`).
 See `docs/dataset_selection.md`, `docs/integration_contracts.md`, `docs/baselines.md`, `docs/risk_engine.md`.
+
+The demonstrated local workflow uses `logs_SPEDIA_annotated_en.csv`, which
+produces 13 normalized users and 181 user-day profiles in the included local
+demonstration database. The separate CERT supervised model is trained and
+evaluated from CERT r4.2 data using incident-window proxy labels. Those metrics
+do not establish validated real-world insider-threat detection performance.

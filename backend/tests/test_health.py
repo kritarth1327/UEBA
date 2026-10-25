@@ -1,3 +1,9 @@
+from datetime import date, datetime, timezone
+
+from app.models.behavior import DailyBehaviorProfile
+from app.models.ingestion import IngestionRun
+
+
 def test_health_check(client):
     response = client.get("/api/v1/health")
     assert response.status_code == 200
@@ -19,3 +25,30 @@ def test_system_status(client):
     assert "model_status" in data
     assert data["database_status"]["status"] == "healthy"
     assert data["backend_status"]["status"] == "healthy"
+
+
+def test_system_status_uses_persisted_dataset_evidence(client, db_session):
+    db_session.add(DailyBehaviorProfile(
+        user_id="spedia-user",
+        date=date(2025, 3, 6),
+        dataset_source="spedia",
+        event_count=1,
+    ))
+    db_session.add(IngestionRun(
+        dataset="spedia",
+        fingerprint="a" * 64,
+        source_path="logs_SPEDIA_annotated_en.csv",
+        schema_version="1.0.0",
+        status="completed",
+        finished_at=datetime.now(timezone.utc),
+        report_json='{"users": 1, "user_days": 1}',
+    ))
+    db_session.commit()
+
+    response = client.get("/api/v1/system/status")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["dataset_status"]["status"] == "processed"
+    assert data["dataset_status"]["details"]["active_datasets"] == ["spedia"]
+    assert data["pipeline_status"]["status"] == "processed"

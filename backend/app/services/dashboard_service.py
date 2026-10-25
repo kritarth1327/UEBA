@@ -6,10 +6,12 @@ from app.models.user import User
 from app.models.behavior import DailyBehaviorProfile
 from app.models.alert import Alert
 from app.models.prediction import ModelPrediction
+from app.models.behavior import DailyBehaviorProfile
 from app.repositories.prediction_repository import PredictionRepository
 from app.repositories.alert_repository import AlertRepository
 from app.services.ml_threat_service import ml_threat_service
 from app.services.ann_anomaly_service import ann_anomaly_service
+from app.services.cert_supervised_service import cert_supervised_service
 
 
 class DashboardService:
@@ -64,8 +66,20 @@ class DashboardService:
         highest_risk_users = self.pred_repo.get_highest_risk_users(limit=5)
 
         # 8. Readiness flags
-        models_ready = ml_threat_service.is_available() and ann_anomaly_service.is_available()
-        dataset_ready = total_users > 0
+        dataset_ready = (
+            self.db.scalar(select(func.count(DailyBehaviorProfile.id))) or 0
+        ) > 0
+        ml_ready = ml_threat_service.is_available()
+        ann_ready = ann_anomaly_service.is_available()
+        cert_ready = cert_supervised_service.is_available()
+        models_ready = dataset_ready and (ml_ready or cert_ready)
+        model_status = (
+            "ready"
+            if ml_ready and ann_ready and cert_ready
+            else "partial"
+            if models_ready
+            else "unavailable"
+        )
 
         # 9. Latest evaluation timestamp
         last_eval = self.db.scalar(select(func.max(ModelPrediction.evaluated_at)))
@@ -80,5 +94,6 @@ class DashboardService:
             "highest_risk_users": highest_risk_users,
             "dataset_ready": dataset_ready,
             "models_ready": models_ready,
+            "model_status": model_status,
             "last_evaluated_at": last_eval
         }

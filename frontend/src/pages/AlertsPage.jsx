@@ -347,7 +347,10 @@ export function AlertsPage() {
                 </span>
               </div>
               <span className="font-mono text-muted font-medium">
-                Detected: {formatDate(selectedAlert.date)}
+                <div>
+                  <div>Behavior date: {formatDate(selectedAlert.date)}</div>
+                  <div>Detected: {formatDateTime(selectedAlert.detected_at)}</div>
+                </div>
               </span>
             </div>
 

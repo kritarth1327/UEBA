@@ -59,6 +59,9 @@ export function UserInvestigationPage() {
   const [user, setUser] = useState(null);
   const [behavior, setBehavior] = useState(null);
   const [riskData, setRiskData] = useState(null);
+  const [riskConfig, setRiskConfig] = useState(null);
+  const [systemStatus, setSystemStatus] = useState(null);
+  const [baselineDeviation, setBaselineDeviation] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -78,7 +81,7 @@ export function UserInvestigationPage() {
     setLoading(true);
     setError(null);
     try {
-      const [uRes, bRes, rRes, aRes] = await Promise.all([
+      const [uRes, bRes, rRes, aRes, configRes, systemRes] = await Promise.all([
         api.getUserDetail(userId),
         api.getUserBehavior(userId, {
           start_date: startDate || undefined,
@@ -89,12 +92,16 @@ export function UserInvestigationPage() {
           end_date: endDate || undefined,
         }),
         api.getAlerts({ user_id: userId }),
+        api.getRiskConfig(),
+        api.getSystemStatus(),
       ]);
 
       setUser(uRes);
       setBehavior(bRes);
       setRiskData(rRes);
       setAlerts(aRes?.items || []);
+      setRiskConfig(configRes);
+      setSystemStatus(systemRes);
 
       if (bRes?.profiles?.length > 0 && !selectedDayDate) {
         setSelectedDayDate(bRes.profiles[bRes.profiles.length - 1].date);
@@ -111,6 +118,13 @@ export function UserInvestigationPage() {
       fetchInvestigationData();
     }
   }, [userId, startDate, endDate]);
+
+  useEffect(() => {
+    if (!userId || !selectedDayDate) return;
+    api.getUserBaselineDeviation(userId, selectedDayDate)
+      .then(setBaselineDeviation)
+      .catch(() => setBaselineDeviation(null));
+  }, [userId, selectedDayDate]);
 
   const handlePresetChange = (preset) => {
     setDatePreset(preset);
@@ -166,6 +180,26 @@ export function UserInvestigationPage() {
   }
 
   const latestPred = riskData?.latest_prediction;
+  const latestComponents = latestPred?.components?.components || [];
+  const componentByName = Object.fromEntries(
+    latestComponents.map((component) => [component.name, component]),
+  );
+  const componentMessage = (name, fallback) => {
+    const component = componentByName[name];
+    if (!component) return fallback;
+    if (component.status === 'unavailable') {
+      const currentReady = {
+        ml_threat: systemStatus?.model_status?.details?.xgboost_available,
+        ann_anomaly: systemStatus?.model_status?.details?.autoencoder_available,
+        cert_supervised: systemStatus?.model_status?.details?.cert_supervised_available,
+      }[name];
+      return currentReady
+        ? `Unavailable for this persisted assessment: ${component.detail || 'no score recorded'}`
+        : component.detail || 'Unavailable';
+    }
+    if (component.status === 'error') return component.detail || 'Unavailable for this profile';
+    return null;
+  };
   const behaviorProfiles = behavior?.profiles || [];
   const riskHistory = riskData?.history || [];
 
@@ -173,6 +207,22 @@ export function UserInvestigationPage() {
   const activeProfile = selectedDayDate
     ? behaviorProfiles.find((p) => p.date === selectedDayDate) || behaviorProfiles[behaviorProfiles.length - 1]
     : behaviorProfiles[behaviorProfiles.length - 1];
+  const weights = riskConfig?.weights || {};
+  const weightLabel = (name) => `${((weights[name] || 0) * 100).toFixed(2)}% (${(weights[name] || 0).toFixed(4)})`;
+  const baselineFeatures = Object.fromEntries(
+    (baselineDeviation?.features || []).map((feature) => [feature.feature, feature]),
+  );
+  const baselineRows = [
+    ['logon_count', 'System Logons', 'count'],
+    ['after_hours_logons', 'Off-Hours Logons', 'count'],
+    ['removable_device_events', 'Removable Media / USB Events', 'count'],
+    ['email_external_count', 'External Email Transmissions', 'count'],
+    ['total_session_duration', 'Total Active Session Duration', 'hours'],
+  ];
+  const formatObserved = (name, value) => {
+    if (value === null || value === undefined) return 'Unavailable';
+    return `${Number(value).toFixed(name === 'total_session_duration' ? 1 : 0)}${name === 'total_session_duration' ? ' hrs' : ''}`;
+  };
 
   return (
     <div className="investigation-page">
@@ -237,11 +287,17 @@ export function UserInvestigationPage() {
         <div className="entity-risk-box">
           <span className="risk-metric-title">HYBRID RISK INDEX</span>
           <div className="risk-score-wrapper font-mono">
-            <span className="risk-score-number">{formatRiskScore(user.latest_risk_score)}</span>
+            <span className="risk-score-number">
+              {user.latest_assessment_date
+                ? formatRiskScore(user.latest_risk_score)
+                : 'Unassessed'}
+            </span>
             <span className="risk-score-total">/100</span>
           </div>
           <div className="risk-score-subtitle text-muted">
-            Last evaluated: {formatDate(user.latest_assessment_date)}
+            {user.latest_assessment_date
+              ? `Last evaluated: ${formatDate(user.latest_assessment_date)}`
+              : 'No hybrid assessment has been recorded for this entity'}
           </div>
         </div>
       </div>
@@ -336,7 +392,7 @@ export function UserInvestigationPage() {
             ) : (
               <div className="signal-unavailable-text">
                 <Clock size={13} />
-                <span>Unavailable (Awaiting Model Training)</span>
+                <span>{componentMessage('ml_threat', 'No assessment recorded')}</span>
               </div>
             )}
           </div>
@@ -345,7 +401,41 @@ export function UserInvestigationPage() {
           </p>
           <div className="signal-weight-row">
             <span className="weight-label">Engine Weight:</span>
-            <span className="weight-val font-mono">45% (0.45)</span>
+            <span className="weight-val font-mono">{weightLabel('ml_threat')}</span>
+          </div>
+        </div>
+
+        {/* Signal 2: CERT supervised classifier */}
+        <div className="card signal-card">
+          <div className="signal-card-header">
+            <div className="signal-title-box">
+              <Shield size={16} className="text-amber" />
+              <div>
+                <h4 className="signal-name">CERT Supervised Score</h4>
+                <span className="signal-tech text-muted">XGBoost &bull; CERT r4.2 proxy labels</span>
+              </div>
+            </div>
+            <span className="badge badge-neutral">Signal 2</span>
+          </div>
+          <div className="signal-metric-area">
+            {componentByName.cert_supervised?.normalized !== null &&
+            componentByName.cert_supervised?.normalized !== undefined ? (
+              <div className="signal-metric-val font-mono">
+                {(componentByName.cert_supervised.normalized * 100).toFixed(1)}%
+              </div>
+            ) : (
+              <div className="signal-unavailable-text">
+                <Clock size={13} />
+                <span>{componentMessage('cert_supervised', 'No assessment recorded')}</span>
+              </div>
+            )}
+          </div>
+          <p className="signal-explanation text-muted">
+            Incident-window proxy probability; not validated ground-truth insider-threat probability.
+          </p>
+          <div className="signal-weight-row">
+            <span className="weight-label">Engine Weight:</span>
+            <span className="weight-val font-mono">{weightLabel('cert_supervised')}</span>
           </div>
         </div>
 
@@ -359,7 +449,7 @@ export function UserInvestigationPage() {
                 <span className="signal-tech text-muted">Dense ANN &bull; Reconstruction MSE</span>
               </div>
             </div>
-            <span className="badge badge-neutral">Signal 2</span>
+            <span className="badge badge-neutral">Signal 3</span>
           </div>
 
           <div className="signal-metric-area">
@@ -370,7 +460,7 @@ export function UserInvestigationPage() {
             ) : (
               <div className="signal-unavailable-text">
                 <Clock size={13} />
-                <span>Unavailable (Awaiting Model Weights)</span>
+                <span>{componentMessage('ann_anomaly', 'No assessment recorded')}</span>
               </div>
             )}
           </div>
@@ -379,7 +469,7 @@ export function UserInvestigationPage() {
           </p>
           <div className="signal-weight-row">
             <span className="weight-label">Engine Weight:</span>
-            <span className="weight-val font-mono">35% (0.35)</span>
+            <span className="weight-val font-mono">{weightLabel('ann_anomaly')}</span>
           </div>
         </div>
 
@@ -393,7 +483,7 @@ export function UserInvestigationPage() {
                 <span className="signal-tech text-muted">Z-Score Normal &bull; Per-User</span>
               </div>
             </div>
-            <span className="badge badge-neutral">Signal 3</span>
+            <span className="badge badge-neutral">Signal 4</span>
           </div>
 
           <div className="signal-metric-area">
@@ -404,7 +494,7 @@ export function UserInvestigationPage() {
             ) : (
               <div className="signal-unavailable-text">
                 <Clock size={13} />
-                <span>Unavailable (Awaiting Baseline Window)</span>
+                <span>{componentMessage('baseline_deviation', 'No assessment recorded')}</span>
               </div>
             )}
           </div>
@@ -413,7 +503,7 @@ export function UserInvestigationPage() {
           </p>
           <div className="signal-weight-row">
             <span className="weight-label">Engine Weight:</span>
-            <span className="weight-val font-mono">20% (0.20)</span>
+            <span className="weight-val font-mono">{weightLabel('baseline_deviation')}</span>
           </div>
         </div>
       </div>
@@ -425,10 +515,10 @@ export function UserInvestigationPage() {
           <h4 className="formula-title">Hybrid Risk Fusion Engine Calibration</h4>
         </div>
         <p className="formula-desc text-muted">
-          Final threat assessment combines supervised detection of known threat signatures with unsupervised detection of novel anomalies and per-user personal baseline deviations:
+          Final threat assessment           combines available normalized component scores. Configured weights are renormalized across components that successfully score this profile:
         </p>
         <div className="formula-display font-mono">
-          <span className="formula-accent">Hybrid Score [0-100]</span> = 100 &times; (0.45 &times; S_ML + 0.35 &times; S_ANN + 0.20 &times; S_Baseline)
+          <span className="formula-accent">Hybrid Score [0-100]</span> = 100 &times; ({(weights.ml_threat || 0).toFixed(4)} &times; S_ML + {(weights.ann_anomaly || 0).toFixed(4)} &times; S_ANN + {(weights.cert_supervised || 0).toFixed(4)} &times; S_CERT + {(weights.baseline_deviation || 0).toFixed(4)} &times; S_Baseline)
         </div>
         <div className="formula-thresholds">
           <span className="thresh-chip chip-low">&bull; Low Risk: &lt; 40</span>
@@ -514,82 +604,36 @@ export function UserInvestigationPage() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td className="font-medium text-primary">System Logons</td>
-                  <td className="font-mono font-bold">{activeProfile.logon_count}</td>
-                  <td className="font-mono text-muted">2.4</td>
-                  <td className="font-mono text-muted">0.8</td>
-                  <td className="font-mono">
-                    {(((activeProfile.logon_count - 2.4) / 0.8)).toFixed(2)}&sigma;
-                  </td>
-                  <td>
-                    <span className="badge badge-low">Normal</span>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td className="font-medium text-primary">Off-Hours Logons</td>
-                  <td className="font-mono font-bold">{activeProfile.after_hours_logons}</td>
-                  <td className="font-mono text-muted">0.2</td>
-                  <td className="font-mono text-muted">0.4</td>
-                  <td className="font-mono">
-                    {(((activeProfile.after_hours_logons - 0.2) / 0.4)).toFixed(2)}&sigma;
-                  </td>
-                  <td>
-                    {activeProfile.after_hours_logons > 0 ? (
-                      <span className="badge badge-medium">Elevated</span>
-                    ) : (
-                      <span className="badge badge-low">Normal</span>
-                    )}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td className="font-medium text-primary">Removable Media / USB Events</td>
-                  <td className="font-mono font-bold text-critical">
-                    {activeProfile.removable_device_events}
-                  </td>
-                  <td className="font-mono text-muted">0.05</td>
-                  <td className="font-mono text-muted">0.2</td>
-                  <td className="font-mono">
-                    {(((activeProfile.removable_device_events - 0.05) / 0.2)).toFixed(2)}&sigma;
-                  </td>
-                  <td>
-                    {activeProfile.removable_device_events > 0 ? (
-                      <span className="badge badge-critical">Anomalous</span>
-                    ) : (
-                      <span className="badge badge-low">Normal</span>
-                    )}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td className="font-medium text-primary">External Email Transmissions</td>
-                  <td className="font-mono font-bold">{activeProfile.email_external_count}</td>
-                  <td className="font-mono text-muted">3.1</td>
-                  <td className="font-mono text-muted">1.5</td>
-                  <td className="font-mono">
-                    {(((activeProfile.email_external_count - 3.1) / 1.5)).toFixed(2)}&sigma;
-                  </td>
-                  <td>
-                    <span className="badge badge-low">Normal</span>
-                  </td>
-                </tr>
-
-                <tr>
-                  <td className="font-medium text-primary">Total Active Session Duration</td>
-                  <td className="font-mono font-bold">
-                    {activeProfile.total_session_duration.toFixed(1)} hrs
-                  </td>
-                  <td className="font-mono text-muted">7.8 hrs</td>
-                  <td className="font-mono text-muted">1.2 hrs</td>
-                  <td className="font-mono">
-                    {(((activeProfile.total_session_duration - 7.8) / 1.2)).toFixed(2)}&sigma;
-                  </td>
-                  <td>
-                    <span className="badge badge-low">Normal</span>
-                  </td>
-                </tr>
+                {baselineRows.map(([name, label]) => {
+                  const feature = baselineFeatures[name];
+                  const observed = activeProfile.features?.[name];
+                  const unavailable = activeProfile.unavailable_features?.includes(name)
+                    || observed === null
+                    || observed === undefined;
+                  const status = unavailable
+                    ? 'Unavailable'
+                    : !feature
+                      ? 'No baseline'
+                      : feature.is_deviant
+                        ? 'Anomalous'
+                        : 'Normal';
+                  return (
+                    <tr key={name}>
+                      <td className="font-medium text-primary">{label}</td>
+                      <td className="font-mono font-bold">{formatObserved(name, observed)}</td>
+                      <td className="font-mono text-muted">{feature ? feature.baseline_center.toFixed(2) : '—'}</td>
+                      <td className="font-mono text-muted">{feature ? feature.baseline_scale.toFixed(2) : '—'}</td>
+                      <td className="font-mono">{feature ? `${feature.z_score.toFixed(2)}σ` : '—'}</td>
+                      <td>
+                        <span className={`badge ${
+                          status === 'Anomalous' ? 'badge-critical'
+                            : status === 'Normal' ? 'badge-low'
+                              : 'badge-neutral'
+                        }`}>{status}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -713,7 +757,10 @@ export function UserInvestigationPage() {
                         {alert.severity}
                       </span>
                     </td>
-                    <td className="text-muted">{formatDate(alert.date)}</td>
+                    <td className="text-muted">
+                      <div>{formatDate(alert.date)}</div>
+                      <small>Behavior date</small>
+                    </td>
                     <td className="font-medium text-primary">{alert.reason}</td>
                     <td className="font-mono font-bold">{formatRiskScore(alert.risk_score)}</td>
                     <td>

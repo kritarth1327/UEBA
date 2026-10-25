@@ -13,6 +13,7 @@ from typing import Mapping, Optional
 import numpy as np
 import pandas as pd
 
+from app.core.logging import logger
 from app.services.model_interfaces import ScoreResult
 
 
@@ -49,20 +50,38 @@ class CERTSupervisedService:
 
     def _load(self) -> None:
         if not self.model_path.is_file():
+            logger.warning("CERT supervised artifact not found: %s", self.model_path)
             return
 
         try:
             import joblib
 
-            self.model = joblib.load(self.model_path)
+            model = joblib.load(self.model_path)
+            if not hasattr(model, "predict_proba"):
+                raise TypeError("CERT artifact does not expose predict_proba")
 
+            metadata = {}
             if self.metrics_path.is_file():
-                self.metadata = json.loads(
+                metadata = json.loads(
                     self.metrics_path.read_text(encoding="utf-8")
                 )
-        except Exception:
+            model_features = (
+                metadata.get("metrics", {})
+                .get("xgboost", {})
+                .get("features", [])
+            )
+            if model_features and model_features != self.FEATURE_NAMES:
+                raise ValueError(
+                    "CERT artifact feature order does not match the inference contract"
+                )
+
+            self.model = model
+            self.metadata = metadata
+            logger.info("Loaded CERT supervised model from %s", self.model_path)
+        except (OSError, TypeError, ValueError, ImportError, json.JSONDecodeError) as exc:
             self.model = None
             self.metadata = {}
+            logger.exception("Could not load CERT supervised model: %s", exc)
 
     def is_available(self) -> bool:
         return self.model is not None

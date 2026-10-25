@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from app.models.user import User
 from app.models.behavior import DailyBehaviorProfile
 from app.models.prediction import ModelPrediction
@@ -106,3 +106,27 @@ def test_user_behavior_and_risk(client, db_session):
     assert len(r_data["history"]) == 1
     assert r_data["latest_prediction"]["hybrid_risk_score"] == 76.4
     assert r_data["summary"]["max_risk_score"] == 76.4
+
+
+def test_point_in_time_baseline_deviation_endpoint(client, db_session):
+    db_session.add(User(user_id="ACM2278", employee_name="Alice Smith"))
+    for i in range(15):
+        db_session.add(DailyBehaviorProfile(
+            user_id="ACM2278",
+            date=date(2026, 3, 1) + timedelta(days=i),
+            logon_count=i + 1,
+            after_hours_logons=0,
+            removable_device_events=0,
+            email_external_count=0,
+        ))
+    db_session.commit()
+
+    response = client.get("/api/v1/users/ACM2278/baseline/deviation?on=2026-03-15")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["date"] == "2026-03-15"
+    assert data["status"] == "ok"
+    logons = next(item for item in data["features"] if item["feature"] == "logon_count")
+    assert logons["observed"] == 15
+    assert logons["z_score"] > 0

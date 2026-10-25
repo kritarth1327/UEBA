@@ -1,4 +1,5 @@
 import os
+import platform
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any
@@ -7,8 +8,11 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.user import User
 from app.models.behavior import DailyBehaviorProfile
+from app.models.ingestion import IngestionRun
 from app.services.ml_threat_service import ml_threat_service
 from app.services.ann_anomaly_service import ann_anomaly_service
+from app.services.cert_supervised_service import cert_supervised_service
+from app.services.hybrid_risk_service import hybrid_risk_service
 
 
 class SystemService:
@@ -53,9 +57,7 @@ class SystemService:
             db_status = "unhealthy"
             db_msg = f"Database connectivity error: {str(e)}"
 
-        # 2. Dataset check (CERT r4.2 raw files)
-        dataset_status = "unavailable"
-        dataset_msg = "CERT Insider Threat Dataset r4.2 not yet extracted to data/raw/r4.2/."
+        # 2. Dataset check: source diagnostics are separate from persisted readiness.
         raw_r42_path = settings.CERT_R42_DIR
         expected_files = ["logon.csv", "device.csv", "file.csv", "email.csv", "http.csv"]
         found_files = []
@@ -72,12 +74,37 @@ class SystemService:
                 dataset_msg = f"Partial dataset detected: {len(found_files)} of {len(expected_files)} files available."
 
         spedia_file = settings.SPEDIA_FILE
+        completed_runs = list(self.db.scalars(select(IngestionRun).where(
+            IngestionRun.status == "completed"
+        ).order_by(IngestionRun.id.desc())))
+        persisted_profiles = db_details.get("persisted_profiles", 0)
+        active_datasets = sorted({
+            source for source in self.db.scalars(select(DailyBehaviorProfile.dataset_source).distinct())
+            if source
+        })
+        if completed_runs and persisted_profiles > 0:
+            dataset_status = "processed"
+            dataset_msg = (
+                f"Persisted behavioral data is available from "
+                f"{', '.join(active_datasets) or 'a supported dataset'}."
+            )
+        elif persisted_profiles > 0:
+            dataset_status = "processed"
+            dataset_msg = "Persisted behavioral profiles are available."
+        elif raw_r42_path.exists() or spedia_file.exists():
+            dataset_status = "available"
+            dataset_msg = "A supported dataset source is available but has not been ingested."
+        else:
+            dataset_status = "unavailable"
+            dataset_msg = "No supported dataset source has been ingested or located."
         dataset_details = {
             "expected_directory": str(raw_r42_path),
             "expected_files": expected_files,
             "files_found": found_files,
             # Second supported source (see docs/dataset_selection.md); CERT fields above are unchanged
             "spedia": {"expected_file": spedia_file.name, "present": spedia_file.exists()},
+            "active_datasets": active_datasets,
+            "completed_ingestion_runs": len(completed_runs),
         }
 
         # 3. Processing Pipeline check
@@ -86,30 +113,51 @@ class SystemService:
         if db_details.get("persisted_profiles", 0) > 0:
             pipeline_status = "processed"
             pipeline_msg = f"Profiles aggregated: {db_details.get('persisted_profiles')} daily records."
-        elif dataset_status == "ready" or spedia_file.exists():
+        elif dataset_status == "available":
             pipeline_status = "ready"
             pipeline_msg = "Ready to execute user-day profile ingestion."
 
         # 4. Model Artifact check
-        models_ready = ml_threat_service.is_available() and ann_anomaly_service.is_available()
-        model_status = "ready" if models_ready else "unavailable"
-        model_msg = "Detection models loaded and ready for inference." if models_ready else "Model weights not found in artifacts/. Awaiting training."
+        ml_available = ml_threat_service.is_available()
+        ann_available = ann_anomaly_service.is_available()
+        cert_available = cert_supervised_service.is_available()
+        models_ready = ml_available or cert_available
+        model_status = (
+            "ready"
+            if ml_available and ann_available and cert_available
+            else "partial"
+            if models_ready
+            else "unavailable"
+        )
+        model_msg = (
+            "All inference components loaded and ready."
+            if model_status == "ready"
+            else "Partial inference available; unavailable components are reported per assessment."
+            if model_status == "partial"
+            else "No inference model components are available."
+        )
         model_details = {
-            "xgboost_available": ml_threat_service.is_available(),
-            "autoencoder_available": ann_anomaly_service.is_available(),
+            "xgboost_available": ml_available,
+            "autoencoder_available": ann_available,
+            "cert_supervised_available": cert_available,
+            "hybrid_available": hybrid_risk_service.is_available(),
             "artifacts_directory": str(settings.MODELS_DIR)
         }
 
         # Overall health
-        overall = "operational" if db_status == "healthy" and dataset_status == "ready" and models_ready else "pending_data"
+        overall = (
+            "operational"
+            if db_status == "healthy" and dataset_status == "processed" and models_ready
+            else "pending_data"
+        )
 
         return {
             "overall_status": overall,
             "backend_status": {
                 "name": "FastAPI Application",
                 "status": "healthy",
-                "message": "API server running on Python 3.14.7.",
-                "details": {"python_version": "3.14.7", "api_version": "v1"}
+                "message": f"API server running on Python {platform.python_version()}.",
+                "details": {"python_version": platform.python_version(), "api_version": "v1"}
             },
             "database_status": {
                 "name": "Database Connectivity",
@@ -118,7 +166,7 @@ class SystemService:
                 "details": db_details
             },
             "dataset_status": {
-                "name": "CERT r4.2 Dataset",
+                "name": "Supported Dataset Sources",
                 "status": dataset_status,
                 "message": dataset_msg,
                 "details": dataset_details

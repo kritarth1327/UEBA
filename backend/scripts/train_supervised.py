@@ -31,7 +31,7 @@ from app.pipeline.adapters.spedia import SpediaAdapter
 from app.pipeline.features import BusinessHours, DailyAggregator
 from app.pipeline.schema import FEATURE_NAMES, SCHEMA_VERSION, SPEDIA, available_features
 
-DATA_PATH = ROOT / "data" / "raw" / "logs_SPEDIA_annotated_en.csv"
+DATA_PATH = ROOT / "data" / "raw" / "spedia" / "logs_SPEDIA_annotated_en.csv"
 OUTPUT_DIR = ROOT / "backend" / "artifacts"
 CHUNK_SIZE = 50_000
 RANDOM_STATE = 42
