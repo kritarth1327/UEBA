@@ -206,6 +206,52 @@ export function UserInvestigationPage() {
   const activeProfile = selectedDayDate
     ? behaviorProfiles.find((p) => p.date === selectedDayDate) || behaviorProfiles[behaviorProfiles.length - 1]
     : behaviorProfiles[behaviorProfiles.length - 1];
+      // Calculate personal baselines using only profiles before the selected day.
+  // This prevents the day being investigated from influencing its own baseline.
+  const baselineProfiles = activeProfile
+  ? behaviorProfiles.filter(
+      (profile) => String(profile.date) < String(activeProfile.date)
+    )
+  : [];
+
+const getBaselineStats = (feature) => {
+  const values = baselineProfiles
+    .map((profile) => Number(profile[feature]))
+    .filter((value) => Number.isFinite(value));
+
+  if (values.length === 0) {
+    return null;
+  }
+
+  const mean =
+    values.reduce((sum, value) => sum + value, 0) / values.length;
+
+  const variance =
+    values.reduce((sum, value) => sum + (value - mean) ** 2, 0) /
+    values.length;
+
+  return {
+    mean,
+    std: Math.sqrt(variance),
+    count: values.length,
+  };
+};
+
+const getDeviation = (observed, stats) => {
+  if (!stats || stats.std === 0) {
+    return null;
+  }
+
+  return (Number(observed) - stats.mean) / stats.std;
+};
+
+const baselineFeatures = {
+  logon_count: getBaselineStats('logon_count'),
+  after_hours_logons: getBaselineStats('after_hours_logons'),
+  removable_device_events: getBaselineStats('removable_device_events'),
+  email_external_count: getBaselineStats('email_external_count'),
+  total_session_duration: getBaselineStats('total_session_duration'),
+};
 
   return (
     <div className="investigation-page">
@@ -663,6 +709,96 @@ export function UserInvestigationPage() {
               </span>
             </div>
           </div>
+                    {/* ANN result for the currently selected day */}
+                    <div
+            style={{
+              marginBottom: 20,
+              padding: 16,
+              borderRadius: 10,
+              border: `1px solid ${
+                activeAnn?.is_anomaly_candidate ? '#fca5a5' : '#cbd5e1'
+              }`,
+              background: activeAnn?.is_anomaly_candidate
+                ? '#fef2f2'
+                : '#f8fafc',
+            }}
+          >
+            <h4 style={{ margin: '0 0 12px', fontSize: 15 }}>
+              Neural Autoencoder — Selected Day Assessment
+            </h4>
+
+            {activeAnn ? (
+              <>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                    gap: 16,
+                  }}
+                >
+                  <div>
+                    <div className="text-muted" style={{ fontSize: 12 }}>
+                      Selected Date
+                    </div>
+                    <div className="font-mono font-bold">
+                      {formatDate(activeAnn.date)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-muted" style={{ fontSize: 12 }}>
+                      Reconstruction Error
+                    </div>
+                    <div className="font-mono font-bold">
+                      {Number(activeAnn.ann_anomaly_score).toFixed(6)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-muted" style={{ fontSize: 12 }}>
+                      Detection Threshold
+                    </div>
+                    <div className="font-mono font-bold">
+                      {Number(activeAnn.threshold).toFixed(6)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-muted" style={{ fontSize: 12 }}>
+                      Detection Status
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      <span
+                        className={`badge ${
+                          activeAnn.is_anomaly_candidate
+                            ? 'badge-critical'
+                            : 'badge-low'
+                        }`}
+                      >
+                        {activeAnn.is_anomaly_candidate
+                          ? 'Anomaly Candidate'
+                          : 'Below Threshold'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <p
+                  className="text-muted"
+                  style={{ fontSize: 12, margin: '14px 0 0' }}
+                >
+                  {activeAnn.is_anomaly_candidate
+                    ? 'This day exceeded the trained autoencoder threshold. Investigate the associated behavior before drawing conclusions.'
+                    : 'This day did not exceed the trained autoencoder threshold. This does not guarantee that the activity is benign.'}
+                </p>
+              </>
+            ) : (
+              <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
+                No ANN result is available for this date. Select a date with a
+                matching ANN assessment to inspect its reconstruction error.
+              </p>
+            )}
+          </div>
 
           <div className="table-responsive">
             <table className="compact-table">
@@ -678,81 +814,310 @@ export function UserInvestigationPage() {
               </thead>
               <tbody>
                 <tr>
-                  <td className="font-medium text-primary">System Logons</td>
-                  <td className="font-mono font-bold">{activeProfile.logon_count}</td>
-                  <td className="font-mono text-muted">2.4</td>
-                  <td className="font-mono text-muted">0.8</td>
-                  <td className="font-mono">
-                    {(((activeProfile.logon_count - 2.4) / 0.8)).toFixed(2)}&sigma;
-                  </td>
-                  <td>
-                    <span className="badge badge-low">Normal</span>
-                  </td>
-                </tr>
+  <td className="font-medium text-primary">System Logons</td>
+  <td className="font-mono font-bold">
+    {Number(activeProfile.logon_count).toFixed(0)}
+  </td>
+  <td className="font-mono text-muted">
+    {baselineFeatures.logon_count
+      ? baselineFeatures.logon_count.mean.toFixed(2)
+      : '—'}
+  </td>
+  <td className="font-mono text-muted">
+    {baselineFeatures.logon_count
+      ? baselineFeatures.logon_count.std.toFixed(2)
+      : '—'}
+  </td>
+  <td className="font-mono">
+    {getDeviation(
+      activeProfile.logon_count,
+      baselineFeatures.logon_count
+    ) === null
+      ? '—'
+      : `${getDeviation(
+          activeProfile.logon_count,
+          baselineFeatures.logon_count
+        ).toFixed(2)}σ`}
+  </td>
+  <td>
+    {(() => {
+      const stats = baselineFeatures.logon_count;
+      const deviation = getDeviation(activeProfile.logon_count, stats);
+      const unusual = deviation !== null && Math.abs(deviation) >= 3;
+      const elevated = deviation !== null && Math.abs(deviation) >= 2;
+      return (
+        <span className={`badge ${
+          unusual ? 'badge-critical' : elevated ? 'badge-medium' : 'badge-low'
+        }`}>
+          {!stats
+            ? 'Insufficient History'
+            : stats.std === 0
+              ? Number(activeProfile.logon_count) === stats.mean
+                ? 'At Baseline'
+                : 'Baseline Variance Is Zero'
+              : unusual
+                ? 'Highly Unusual'
+                : elevated
+                  ? 'Elevated'
+                  : 'Within Baseline Range'}
+                </span>
+      );
+    })()}
+  </td>
+</tr>
 
-                <tr>
-                  <td className="font-medium text-primary">Off-Hours Logons</td>
-                  <td className="font-mono font-bold">{activeProfile.after_hours_logons}</td>
-                  <td className="font-mono text-muted">0.2</td>
-                  <td className="font-mono text-muted">0.4</td>
-                  <td className="font-mono">
-                    {(((activeProfile.after_hours_logons - 0.2) / 0.4)).toFixed(2)}&sigma;
-                  </td>
-                  <td>
-                    {activeProfile.after_hours_logons > 0 ? (
-                      <span className="badge badge-medium">Elevated</span>
-                    ) : (
-                      <span className="badge badge-low">Normal</span>
-                    )}
-                  </td>
-                </tr>
 
-                <tr>
-                  <td className="font-medium text-primary">Removable Media / USB Events</td>
-                  <td className="font-mono font-bold text-critical">
-                    {activeProfile.removable_device_events}
-                  </td>
-                  <td className="font-mono text-muted">0.05</td>
-                  <td className="font-mono text-muted">0.2</td>
-                  <td className="font-mono">
-                    {(((activeProfile.removable_device_events - 0.05) / 0.2)).toFixed(2)}&sigma;
-                  </td>
-                  <td>
-                    {activeProfile.removable_device_events > 0 ? (
-                      <span className="badge badge-critical">Anomalous</span>
-                    ) : (
-                      <span className="badge badge-low">Normal</span>
-                    )}
-                  </td>
-                </tr>
+<tr>
+  <td className="font-medium text-primary">Off-Hours Logons</td>
+  <td className="font-mono font-bold">
+    {Number(activeProfile.after_hours_logons).toFixed(0)}
+  </td>
+  <td className="font-mono text-muted">
+    {baselineFeatures.after_hours_logons
+      ? baselineFeatures.after_hours_logons.mean.toFixed(2)
+      : '—'}
+  </td>
+  <td className="font-mono text-muted">
+    {baselineFeatures.after_hours_logons
+      ? baselineFeatures.after_hours_logons.std.toFixed(2)
+      : '—'}
+  </td>
+  <td className="font-mono">
+    {getDeviation(
+      activeProfile.after_hours_logons,
+      baselineFeatures.after_hours_logons
+    ) === null
+      ? '—'
+      : `${getDeviation(
+          activeProfile.after_hours_logons,
+          baselineFeatures.after_hours_logons
+        ).toFixed(2)}σ`}
+  </td>
+  <td>
+    {(() => {
+      const stats = baselineFeatures.after_hours_logons;
+      const deviation = getDeviation(
+        activeProfile.after_hours_logons,
+        stats
+      );
+      const unusual = deviation !== null && Math.abs(deviation) >= 3;
+      const elevated = deviation !== null && Math.abs(deviation) >= 2;
+      return (
+        <span
+          className={`badge ${
+            unusual
+              ? 'badge-critical'
+              : elevated
+                ? 'badge-medium'
+                : 'badge-low'
+          }`}
+        >
+          {!stats
+            ? 'Insufficient History'
+            : stats.std === 0
+              ? Number(activeProfile.after_hours_logons) === stats.mean
+                ? 'At Baseline'
+                : 'Baseline Variance Is Zero'
+              : unusual
+                ? 'Highly Unusual'
+                : elevated
+                  ? 'Elevated'
+                  : 'Within Baseline Range'}
+                </span>
+      );
+    })()}
+  </td>
+</tr>
 
-                <tr>
-                  <td className="font-medium text-primary">External Email Transmissions</td>
-                  <td className="font-mono font-bold">{activeProfile.email_external_count}</td>
-                  <td className="font-mono text-muted">3.1</td>
-                  <td className="font-mono text-muted">1.5</td>
-                  <td className="font-mono">
-                    {(((activeProfile.email_external_count - 3.1) / 1.5)).toFixed(2)}&sigma;
-                  </td>
-                  <td>
-                    <span className="badge badge-low">Normal</span>
-                  </td>
-                </tr>
 
-                <tr>
-                  <td className="font-medium text-primary">Total Active Session Duration</td>
-                  <td className="font-mono font-bold">
-                    {activeProfile.total_session_duration.toFixed(1)} hrs
-                  </td>
-                  <td className="font-mono text-muted">7.8 hrs</td>
-                  <td className="font-mono text-muted">1.2 hrs</td>
-                  <td className="font-mono">
-                    {(((activeProfile.total_session_duration - 7.8) / 1.2)).toFixed(2)}&sigma;
-                  </td>
-                  <td>
-                    <span className="badge badge-low">Normal</span>
-                  </td>
-                </tr>
+<tr>
+  <td className="font-medium text-primary">Removable Media / USB Events</td>
+  <td className="font-mono font-bold text-critical">
+    {Number(activeProfile.removable_device_events).toFixed(0)}
+  </td>
+  <td className="font-mono text-muted">
+    {baselineFeatures.removable_device_events
+      ? baselineFeatures.removable_device_events.mean.toFixed(2)
+      : '—'}
+  </td>
+  <td className="font-mono text-muted">
+    {baselineFeatures.removable_device_events
+      ? baselineFeatures.removable_device_events.std.toFixed(2)
+      : '—'}
+  </td>
+  <td className="font-mono">
+    {getDeviation(
+      activeProfile.removable_device_events,
+      baselineFeatures.removable_device_events
+    ) === null
+      ? '—'
+      : `${getDeviation(
+          activeProfile.removable_device_events,
+          baselineFeatures.removable_device_events
+        ).toFixed(2)}σ`}
+  </td>
+  <td>
+    {(() => {
+      const stats = baselineFeatures.removable_device_events;
+      const deviation = getDeviation(
+        activeProfile.removable_device_events,
+        stats
+      );
+      const unusual = deviation !== null && Math.abs(deviation) >= 3;
+      const elevated = deviation !== null && Math.abs(deviation) >= 2;
+      return (
+        <span
+          className={`badge ${
+            unusual
+              ? 'badge-critical'
+              : elevated
+                ? 'badge-medium'
+                : 'badge-low'
+          }`}
+        >
+          {!stats
+            ? 'Insufficient History'
+            : stats.std === 0
+              ? Number(activeProfile.removable_device_events) === stats.mean
+                ? 'At Baseline'
+                : 'Baseline Variance Is Zero'
+              : unusual
+                ? 'Highly Unusual'
+                : elevated
+                  ? 'Elevated'
+                  : 'Within Baseline Range'}
+                </span>
+      );
+    })()}
+  </td>
+</tr>
+
+
+<tr>
+  <td className="font-medium text-primary">External Email Transmissions</td>
+  <td className="font-mono font-bold">
+    {Number(activeProfile.email_external_count).toFixed(0)}
+  </td>
+  <td className="font-mono text-muted">
+    {baselineFeatures.email_external_count
+      ? baselineFeatures.email_external_count.mean.toFixed(2)
+      : '—'}
+  </td>
+  <td className="font-mono text-muted">
+    {baselineFeatures.email_external_count
+      ? baselineFeatures.email_external_count.std.toFixed(2)
+      : '—'}
+  </td>
+  <td className="font-mono">
+    {getDeviation(
+      activeProfile.email_external_count,
+      baselineFeatures.email_external_count
+    ) === null
+      ? '—'
+      : `${getDeviation(
+          activeProfile.email_external_count,
+          baselineFeatures.email_external_count
+        ).toFixed(2)}σ`}
+  </td>
+  <td>
+    {(() => {
+      const stats = baselineFeatures.email_external_count;
+      const deviation = getDeviation(
+        activeProfile.email_external_count,
+        stats
+      );
+      const unusual = deviation !== null && Math.abs(deviation) >= 3;
+      const elevated = deviation !== null && Math.abs(deviation) >= 2;
+      return (
+        <span
+          className={`badge ${
+            unusual
+              ? 'badge-critical'
+              : elevated
+                ? 'badge-medium'
+                : 'badge-low'
+          }`}
+        >
+          {!stats
+            ? 'Insufficient History'
+            : stats.std === 0
+              ? Number(activeProfile.email_external_count) === stats.mean
+                ? 'At Baseline'
+                : 'Baseline Variance Is Zero'
+              : unusual
+                ? 'Highly Unusual'
+                : elevated
+                  ? 'Elevated'
+                  : 'Within Baseline Range'}
+                </span>
+      );
+    })()}
+  </td>
+</tr>
+
+
+<tr>
+  <td className="font-medium text-primary">Total Active Session Duration</td>
+  <td className="font-mono font-bold">
+    {Number(activeProfile.total_session_duration).toFixed(1)} hrs
+  </td>
+  <td className="font-mono text-muted">
+    {baselineFeatures.total_session_duration
+      ? `${baselineFeatures.total_session_duration.mean.toFixed(2)} hrs`
+      : '—'}
+  </td>
+  <td className="font-mono text-muted">
+    {baselineFeatures.total_session_duration
+      ? `${baselineFeatures.total_session_duration.std.toFixed(2)} hrs`
+      : '—'}
+  </td>
+  <td className="font-mono">
+    {getDeviation(
+      activeProfile.total_session_duration,
+      baselineFeatures.total_session_duration
+    ) === null
+      ? '—'
+      : `${getDeviation(
+          activeProfile.total_session_duration,
+          baselineFeatures.total_session_duration
+        ).toFixed(2)}σ`}
+  </td>
+  <td>
+    {(() => {
+      const stats = baselineFeatures.total_session_duration;
+      const deviation = getDeviation(
+        activeProfile.total_session_duration,
+        stats
+      );
+      const unusual = deviation !== null && Math.abs(deviation) >= 3;
+      const elevated = deviation !== null && Math.abs(deviation) >= 2;
+      return (
+        <span
+          className={`badge ${
+            unusual
+              ? 'badge-critical'
+              : elevated
+                ? 'badge-medium'
+                : 'badge-low'
+          }`}
+        >
+          {!stats
+            ? 'Insufficient History'
+            : stats.std === 0
+              ? Number(activeProfile.total_session_duration) === stats.mean
+                ? 'At Baseline'
+                : 'Baseline Variance Is Zero'
+              : unusual
+                ? 'Highly Unusual'
+                : elevated
+                  ? 'Elevated'
+                  : 'Within Baseline Range'}
+                </span>
+      );
+    })()}
+  </td>
+</tr>
+
               </tbody>
             </table>
           </div>
