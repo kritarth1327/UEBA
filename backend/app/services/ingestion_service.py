@@ -61,7 +61,7 @@ class IngestionService:
 
     def ingest(self, dataset: str, path: Optional[str] = None, force: bool = False,
                chunksize: Optional[int] = None, allow_outside_raw_dir: bool = False,
-               cert_file_is_removable_copy: bool = False) -> Dict[str, Any]:
+               cert_file_is_removable_copy: bool = True) -> Dict[str, Any]:
         adapter = self._adapter(dataset, cert_file_is_removable_copy)
         default = settings.SPEDIA_FILE if dataset == SPEDIA else settings.CERT_R42_DIR
         src = resolve_raw_path(path, default, settings.RAW_DATA_DIR, allow_outside_raw_dir)

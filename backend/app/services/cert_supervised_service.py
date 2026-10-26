@@ -115,8 +115,8 @@ class CERTSupervisedService:
                 value = features.get(name)
 
                 if value is None:
-                    return ScoreResult.error(
-                        f"Required CERT feature is missing: {name}",
+                    return ScoreResult.unavailable(
+                        f"Required CERT feature is unavailable: {name}",
                         self.version,
                     )
 

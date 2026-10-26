@@ -127,6 +127,33 @@ def test_cert_adapter_documented_layout(tmp_path):
     assert np.isnan(r.command_exec_count) and np.isnan(r.file_copied_removable)
 
 
+def test_cert_file_events_propagate_removable_copy_feature(tmp_path):
+    (tmp_path / "file.csv").write_text(
+        "id,date,user,pc,filename\n"
+        "F1,03/04/2010 09:00:00,ACM1,PC1,secret.doc\n"
+        "F2,03/04/2010 09:30:00,ACM1,PC1,report.xls\n"
+    )
+    adapter = CertR42Adapter(file_is_removable_copy=True)
+    df, _ = run(adapter, tmp_path)
+
+    assert adapter.available and "file_copied_removable" in adapter.available
+    row = df.iloc[0]
+    assert np.isnan(row.file_access_count)
+    assert row.file_copied_removable == 2
+
+
+def test_cert_file_copy_feature_remains_unavailable_when_disabled(tmp_path):
+    (tmp_path / "file.csv").write_text(
+        "id,date,user,pc,filename\n"
+        "F1,03/04/2010 09:00:00,ACM1,PC1,secret.doc\n"
+    )
+    adapter = CertR42Adapter(file_is_removable_copy=False)
+    df, _ = run(adapter, tmp_path)
+
+    assert "file_copied_removable" not in adapter.available
+    assert np.isnan(df.iloc[0].file_copied_removable)
+
+
 def test_file_fingerprint_changes_with_content(tmp_path):
     p = tmp_path / "a.csv"; p.write_text("x"); f1 = file_fingerprint([p]); p.write_text("y")
     assert f1 != file_fingerprint([p])

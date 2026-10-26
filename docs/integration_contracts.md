@@ -10,7 +10,7 @@ Daily user windows; counts are non-negative; `email_total_bytes` in bytes; `tota
 | Availability | SPEDIA | CERT r4.2 |
 |---|---|---|
 | failed_logon_count, file_integrity_event_count, command_exec_count | yes | no |
-| file_copied_removable | no | only if `cert_file_is_removable_copy` is set after verifying the dataset docs |
+| file_copied_removable | no | CERT `file.csv` proxy when `cert_file_is_removable_copy` is true (the ingestion API default); remains unavailable for datasets that do not document this event |
 | total_session_duration | no (needs reliable open/close pairing) | no (not implemented) |
 
 **Missing policy:** unavailable ⇒ `null` in APIs / `NaN` in vectors (`vectorize`). Typed DB columns store 0 for legacy

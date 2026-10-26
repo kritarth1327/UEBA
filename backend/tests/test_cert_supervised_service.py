@@ -44,7 +44,7 @@ def test_missing_feature_returns_error():
 
     result = service.score(features)
 
-    assert result.status == ScoreStatus.ERROR
+    assert result.status == ScoreStatus.UNAVAILABLE
     assert "email_count" in result.detail
 
 
@@ -95,5 +95,5 @@ def test_ann_missing_duration_uses_explicit_zero_policy():
     features = valid_features()
     features.pop("email_count")
     result = service.score(features)
-    assert result.status == ScoreStatus.ERROR
+    assert result.status == ScoreStatus.UNAVAILABLE
     assert "email_count" in result.detail

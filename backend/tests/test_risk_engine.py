@@ -205,7 +205,7 @@ def test_ann_service_calibration_and_preprocessing():
     r = svc.score({"logon_count": 3.0, "email_count": 5.0})
     assert r.status == ScoreStatus.OK and r.score == pytest.approx(0.5) and r.raw == 0.2   # err == threshold -> 0.5
     assert seen["v"] == [1.0, 2.0]
-    assert ANNAnomalyService(error_fn=lambda v: 9.9, meta=meta).score({"logon_count": 3.0}).status == ScoreStatus.ERROR  # NaN input
+    assert ANNAnomalyService(error_fn=lambda v: 9.9, meta=meta).score({"logon_count": 3.0}).status == ScoreStatus.UNAVAILABLE  # missing input
     assert ANNAnomalyService(error_fn=lambda v: 0.1, meta={**meta, "threshold": None}).score({}).status == ScoreStatus.UNAVAILABLE
 
 
@@ -243,4 +243,4 @@ def test_ann_service_zero_imputes_only_missing_duration():
 
     bad = {name: 1.0 for name in feature_names}
     bad["email_count"] = None
-    assert svc.score(bad).status == ScoreStatus.ERROR
+    assert svc.score(bad).status == ScoreStatus.UNAVAILABLE

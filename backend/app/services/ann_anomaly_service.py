@@ -93,9 +93,13 @@ class ANNAnomalyService:
         self._error_fn = error_fn
         self._meta = dict(meta or {})
         self._preprocessing = dict(self._meta.get("preprocessing", {}))
-        self._features = list(self._meta.get("feature_names", FEATURES))
+        self._features = list(
+            self._meta.get("feature_names", self._meta.get("features", FEATURES))
+        )
 
-        self.version = str(self._meta.get("model_version", self.version))
+        self.version = str(
+            self._meta.get("model_version", self._meta.get("version", self.version))
+        )
 
         if self._meta.get("threshold") is not None:
             try:
@@ -108,7 +112,6 @@ class ANNAnomalyService:
         if self._error_fn is not None:
             return
 
-        self._features = FEATURES.copy()
         self._load_model_if_exists()
 
     def _load_model_if_exists(self) -> None:
@@ -124,6 +127,7 @@ class ANNAnomalyService:
                 self.model_path,
                 self.scaler_path,
                 self.threshold_path,
+                self.metadata_path,
             ]
             missing = [
                 str(path) for path in required_paths if not path.is_file()
@@ -134,6 +138,26 @@ class ANNAnomalyService:
                     "ANN unavailable; missing artifacts: " + ", ".join(missing)
                 )
                 return
+
+            with self.metadata_path.open("r", encoding="utf-8") as file:
+                artifact_meta = json.load(file)
+            artifact_features = artifact_meta.get(
+                "feature_names", artifact_meta.get("features")
+            )
+            if artifact_meta.get("schema_version") not in (None, SCHEMA_VERSION):
+                raise ValueError(
+                    "ANN artifact schema version does not match the current feature schema."
+                )
+            if artifact_features != FEATURES:
+                raise ValueError(
+                    "ANN artifact feature order does not match the inference contract."
+                )
+            self._meta = artifact_meta
+            self._features = list(artifact_features)
+            self._preprocessing = dict(artifact_meta.get("preprocessing", {}))
+            self.version = str(
+                artifact_meta.get("model_version", artifact_meta.get("version", self.version))
+            )
 
             with self.threshold_path.open("r", encoding="utf-8") as file:
                 threshold_data = json.load(file)
@@ -198,6 +222,8 @@ class ANNAnomalyService:
 
         if self._error_fn is None and len(self._features) != len(FEATURES):
             return "ANN feature count does not match the trained model."
+        if self._error_fn is None and self._features != FEATURES:
+            return "ANN feature order does not match the trained model."
 
         metadata_schema = self._meta.get("schema_version")
         if metadata_schema is not None and metadata_schema != SCHEMA_VERSION:
@@ -353,8 +379,8 @@ class ANNAnomalyService:
                     if name == "total_session_duration" and ANN_DURATION_POLICY == "zero":
                         value = 0.0
                     else:
-                        return ScoreResult.error(
-                            f"Required ANN feature is missing: {name}",
+                        return ScoreResult.unavailable(
+                            f"Required ANN feature is unavailable: {name}",
                             self.version,
                         )
 
@@ -368,8 +394,8 @@ class ANNAnomalyService:
                     numeric_value = 0.0
 
                 if not math.isfinite(numeric_value):
-                    return ScoreResult.error(
-                        f"ANN feature is non-finite or unavailable: {name}",
+                    return ScoreResult.unavailable(
+                        f"Required ANN feature is unavailable: {name}",
                         self.version,
                     )
 
