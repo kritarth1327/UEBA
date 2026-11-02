@@ -141,7 +141,7 @@ export function AlertsPage() {
         <div>
           <h1 className="page-title">Security Alert Investigation Queue</h1>
           <p className="page-subtitle">
-            Prioritized incidents generated from ML threat scoring, ANN reconstruction anomalies, and personal baseline deviations.
+            Persisted SPEDIA risk alerts based on source-label scoring, ANN reconstruction anomalies, and personal baseline deviations. Alerts are analyst-review signals, not confirmed insider threats.
           </p>
         </div>
 
@@ -229,7 +229,7 @@ export function AlertsPage() {
           description={
             severity || status || searchInput
               ? 'No security alerts match your selected filters.'
-              : 'No alerts have been generated. Alerts are automatically triggered when hybrid threat scores or anomaly reconstruction errors exceed calibrated thresholds.'
+              : 'No persisted alerts are available. Alerts are triggered when hybrid risk scores or anomaly reconstruction errors exceed configured thresholds and require analyst review.'
           }
           actionLabel={severity || status || searchInput ? 'Reset Filters' : 'Inspect Models'}
           onAction={severity || status || searchInput ? clearFilters : () => navigate('/models')}
@@ -332,7 +332,7 @@ export function AlertsPage() {
       <Modal
         isOpen={Boolean(selectedAlert)}
         onClose={closeAlertModal}
-        title={`Security Incident Dossier #${selectedAlert?.id}`}
+        title={`Recorded Risk Alert #${selectedAlert?.id}`}
         maxWidth={660}
       >
         {selectedAlert && (
@@ -378,12 +378,16 @@ export function AlertsPage() {
                 <span className="target-val">{selectedAlert.department || '—'}</span>
               </div>
               <div className="target-cell">
-                <span className="target-label">Threat Score</span>
+                <span className="target-label">Experimental Hybrid Risk</span>
                 <span className="target-val font-mono font-bold">
                   {formatRiskScore(selectedAlert.risk_score)}/100
                 </span>
               </div>
             </div>
+
+            <p className="text-muted">
+              This persisted SPEDIA alert is an analyst-review signal. Its risk classification and anomaly indicators do not confirm malicious insider behavior.
+            </p>
 
             {/* Telemetry Evidence JSON */}
             {selectedAlert.evidence && (

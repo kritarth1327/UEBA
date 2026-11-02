@@ -31,6 +31,12 @@ Each artifact needs a JSON contract sidecar in `MODELS_DIR`; without it the serv
   so train it only on features available for the target dataset. Score = `err/(err+threshold)` (0.5 at threshold; provisional mapping).
 * Known risk for the ANN owner: `ann_anomaly_service` loads with `torch.load(..., weights_only=True)`, which will not load a pickled whole model; save a state_dict and rebuild the module, or adjust the loader.
 
+Persisted profiles select the ANN scorer from `daily_behavior_profiles.dataset_source`:
+`spedia` uses the isolated `spedia_dense_autoencoder` bundle and its 14-feature
+contract; `cert_r42` uses the existing `dense_autoencoder` bundle unchanged.
+The selected ANN component records `dataset_source`, `model_name`, and
+`model_version` in persisted prediction component metadata.
+
 ## Risk score
 Hybrid score 0–100, levels LOW <40 ≤ MEDIUM <70 ≤ HIGH (provisional, configurable); alert severity adds CRITICAL ≥90.
 

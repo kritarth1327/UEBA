@@ -52,6 +52,8 @@ import {
 } from '../utils/formatters';
 import './UserInvestigationPage.css';
 
+const SPEDIA_ANN_THRESHOLD = 0.48645620942115775;
+
 export function UserInvestigationPage() {
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -65,6 +67,8 @@ export function UserInvestigationPage() {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [rescoring, setRescoring] = useState(false);
+  const [rescoreMessage, setRescoreMessage] = useState(null);
 
   // Date filters
   const [startDate, setStartDate] = useState('');
@@ -126,6 +130,29 @@ export function UserInvestigationPage() {
       .catch(() => setBaselineDeviation(null));
   }, [userId, selectedDayDate]);
 
+  const handleRescore = async () => {
+    if (!userId || rescoring) return;
+
+    setRescoring(true);
+    setRescoreMessage(null);
+    try {
+      await api.scorePipeline({ user_id: userId });
+      const refreshedRisk = await api.getUserRisk(userId, {
+        start_date: startDate || undefined,
+        end_date: endDate || undefined,
+      });
+      setRiskData(refreshedRisk);
+      setRescoreMessage({ type: 'success', text: 'Assessment rescored successfully.' });
+    } catch (err) {
+      setRescoreMessage({
+        type: 'error',
+        text: err.message || 'Failed to rescore this user.',
+      });
+    } finally {
+      setRescoring(false);
+    }
+  };
+
   const handlePresetChange = (preset) => {
     setDatePreset(preset);
     const now = new Date();
@@ -184,6 +211,9 @@ export function UserInvestigationPage() {
   const componentByName = Object.fromEntries(
     latestComponents.map((component) => [component.name, component]),
   );
+  const annComponent = componentByName.ann_anomaly;
+  const hasCurrentSpediaAnn = annComponent?.model_name === 'spedia_dense_autoencoder'
+    && annComponent?.model_version === 'spedia-experimental-1';
   const componentMessage = (name, fallback) => {
     const component = componentByName[name];
     if (!component) return fallback;
@@ -299,6 +329,26 @@ export function UserInvestigationPage() {
               ? `Last evaluated: ${formatDate(user.latest_assessment_date)}`
               : 'No hybrid assessment has been recorded for this entity'}
           </div>
+          <div className="risk-disclaimer">
+            SPEDIA experimental score for analyst review; not a confirmed insider-threat finding.
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={handleRescore}
+            disabled={rescoring}
+            aria-busy={rescoring}
+          >
+            {rescoring ? 'Rescoring...' : 'Rescore'}
+          </button>
+          {rescoreMessage && (
+            <span
+              className={`risk-score-subtitle rescore-message rescore-message-${rescoreMessage.type}`}
+              role="status"
+            >
+              {rescoreMessage.text}
+            </span>
+          )}
         </div>
       </div>
 
@@ -371,14 +421,14 @@ export function UserInvestigationPage() {
 
       {/* Detection Triad (The 3 Model Signals) + Risk Fusion Formula */}
       <div className="detection-triad-grid">
-        {/* Signal 1: Supervised ML */}
+        {/* Signal 1: SPEDIA source-label model */}
         <div className="card signal-card">
           <div className="signal-card-header">
             <div className="signal-title-box">
               <Cpu size={16} className="text-teal" />
               <div>
-                <h4 className="signal-name">Supervised ML Threat Score</h4>
-                <span className="signal-tech text-muted">XGBoost &bull; Scenario Mapping</span>
+                <h4 className="signal-name">SPEDIA Source Classification Score</h4>
+                <span className="signal-tech text-muted">XGBoost &bull; source_label</span>
               </div>
             </div>
             <span className="badge badge-teal">Signal 1</span>
@@ -397,45 +447,11 @@ export function UserInvestigationPage() {
             )}
           </div>
           <p className="signal-explanation text-muted">
-            Calibrated threat probability calculated against known insider threat scenarios in CERT training splits.
+            Probability for the SPEDIA source label used during training; it is not a validated malicious-insider probability.
           </p>
           <div className="signal-weight-row">
             <span className="weight-label">Engine Weight:</span>
             <span className="weight-val font-mono">{weightLabel('ml_threat')}</span>
-          </div>
-        </div>
-
-        {/* Signal 2: CERT supervised classifier */}
-        <div className="card signal-card">
-          <div className="signal-card-header">
-            <div className="signal-title-box">
-              <Shield size={16} className="text-amber" />
-              <div>
-                <h4 className="signal-name">CERT Supervised Score</h4>
-                <span className="signal-tech text-muted">XGBoost &bull; CERT r4.2 proxy labels</span>
-              </div>
-            </div>
-            <span className="badge badge-neutral">Signal 2</span>
-          </div>
-          <div className="signal-metric-area">
-            {componentByName.cert_supervised?.normalized !== null &&
-            componentByName.cert_supervised?.normalized !== undefined ? (
-              <div className="signal-metric-val font-mono">
-                {(componentByName.cert_supervised.normalized * 100).toFixed(1)}%
-              </div>
-            ) : (
-              <div className="signal-unavailable-text">
-                <Clock size={13} />
-                <span>{componentMessage('cert_supervised', 'No assessment recorded')}</span>
-              </div>
-            )}
-          </div>
-          <p className="signal-explanation text-muted">
-            Incident-window proxy probability; not validated ground-truth insider-threat probability.
-          </p>
-          <div className="signal-weight-row">
-            <span className="weight-label">Engine Weight:</span>
-            <span className="weight-val font-mono">{weightLabel('cert_supervised')}</span>
           </div>
         </div>
 
@@ -449,14 +465,19 @@ export function UserInvestigationPage() {
                 <span className="signal-tech text-muted">Dense ANN &bull; Reconstruction MSE</span>
               </div>
             </div>
-            <span className="badge badge-neutral">Signal 3</span>
+            <span className="badge badge-neutral">Signal 2</span>
           </div>
 
           <div className="signal-metric-area">
-            {latestPred?.ann_anomaly_score !== null && latestPred?.ann_anomaly_score !== undefined ? (
-              <div className="signal-metric-val font-mono">
-                {latestPred.ann_anomaly_score.toFixed(4)}
-              </div>
+            {hasCurrentSpediaAnn && annComponent.status === 'ok' ? (
+              <>
+                <div className="signal-metric-val font-mono">
+                  {Number(annComponent.raw).toFixed(4)}
+                </div>
+                <div className="signal-metric-secondary font-mono">
+                  Normalized score: {Number(annComponent.normalized).toFixed(4)}
+                </div>
+              </>
             ) : (
               <div className="signal-unavailable-text">
                 <Clock size={13} />
@@ -465,7 +486,7 @@ export function UserInvestigationPage() {
             )}
           </div>
           <p className="signal-explanation text-muted">
-            Reconstruction error of daily vector passed through autoencoder trained exclusively on benign behavior.
+            Raw reconstruction error (MSE) for the 14-feature SPEDIA vector. Validation threshold: {SPEDIA_ANN_THRESHOLD.toFixed(4)} MSE; exceeding it marks an anomaly candidate, not confirmed malicious activity.
           </p>
           <div className="signal-weight-row">
             <span className="weight-label">Engine Weight:</span>
@@ -483,7 +504,7 @@ export function UserInvestigationPage() {
                 <span className="signal-tech text-muted">Z-Score Normal &bull; Per-User</span>
               </div>
             </div>
-            <span className="badge badge-neutral">Signal 4</span>
+            <span className="badge badge-neutral">Signal 3</span>
           </div>
 
           <div className="signal-metric-area">
@@ -515,10 +536,10 @@ export function UserInvestigationPage() {
           <h4 className="formula-title">Hybrid Risk Fusion Engine Calibration</h4>
         </div>
         <p className="formula-desc text-muted">
-          Final threat assessment           combines available normalized component scores. Configured weights are renormalized across components that successfully score this profile:
+          Final experimental SPEDIA risk score combines available normalized source-label, ANN, and personal-baseline signals. Configured weights are renormalized across components that successfully score this profile; the CERT component is not applicable. High or critical classifications require analyst review and are not confirmed insider-threat findings:
         </p>
         <div className="formula-display font-mono">
-          <span className="formula-accent">Hybrid Score [0-100]</span> = 100 &times; ({(weights.ml_threat || 0).toFixed(4)} &times; S_ML + {(weights.ann_anomaly || 0).toFixed(4)} &times; S_ANN + {(weights.cert_supervised || 0).toFixed(4)} &times; S_CERT + {(weights.baseline_deviation || 0).toFixed(4)} &times; S_Baseline)
+          <span className="formula-accent">Hybrid Score [0-100]</span> = 100 &times; ({(weights.ml_threat || 0).toFixed(4)} &times; S_ML + {(weights.ann_anomaly || 0).toFixed(4)} &times; S_ANN + {(weights.baseline_deviation || 0).toFixed(4)} &times; S_Baseline)
         </div>
         <div className="formula-thresholds">
           <span className="thresh-chip chip-low">&bull; Low Risk: &lt; 40</span>
@@ -647,7 +668,7 @@ export function UserInvestigationPage() {
             <div>
               <h3 className="section-title">Contributing Risk Factors & Evidence Traces</h3>
               <span className="section-subtitle text-muted">
-                Behaviors that exerted the greatest positive weight on the calculated threat score.
+                Behaviors that exerted the greatest positive weight on the calculated experimental risk score.
               </span>
             </div>
           </div>
@@ -687,7 +708,7 @@ export function UserInvestigationPage() {
           <div>
             <h3 className="section-title">Longitudinal Risk Score Progression</h3>
             <span className="section-subtitle text-muted">
-              Trend of computed hybrid threat levels over the observation period.
+              Trend of computed hybrid risk levels over the observation period; classifications are not confirmed threat findings.
             </span>
           </div>
         </div>

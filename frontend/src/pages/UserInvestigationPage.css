@@ -155,6 +155,22 @@
   font-size: 11.5px;
 }
 
+.risk-disclaimer {
+  max-width: 240px;
+  margin-top: 8px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--risk-medium-text);
+}
+
+.rescore-message-success {
+  color: var(--accent-primary);
+}
+
+.rescore-message-error {
+  color: var(--risk-medium-text);
+}
+
 /* Date Filter Panel */
 .date-filter-panel {
   display: flex;
@@ -256,6 +272,12 @@
   font-size: 26px;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.signal-metric-secondary {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .signal-unavailable-text {

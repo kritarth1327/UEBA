@@ -94,6 +94,24 @@ For example, after dependencies are installed:
 python backend/scripts/train_dense_autoencoder.py --total-session-duration-policy zero
 ```
 
+### Experimental SPEDIA ANN training
+
+The isolated SPEDIA trainer reads already-persisted `spedia` user-day profiles
+from `backend/ueba.db`; it does not re-ingest the raw CSV and does not touch the
+CERT ANN artifacts. It selects annotation-clean rows
+(`anomalous_event_count == 0`) only for unsupervised training, uses the fixed
+14-feature SPEDIA contract, chronological splits, training-only
+`log1p`/`StandardScaler` fitting, and validation-only threshold calibration.
+The output is written to `backend/artifacts/spedia_dense_autoencoder/` and is
+experimental rather than validated insider-threat detection.
+
+```powershell
+cd backend
+python scripts/train_spedia_autoencoder.py `
+  --database ueba.db `
+  --output-dir artifacts/spedia_dense_autoencoder
+```
+
 The demonstrated local workflow uses `logs_SPEDIA_annotated_en.csv`, which
 produces 13 normalized users and 181 user-day profiles in the included local
 demonstration database. The separate CERT supervised model is trained and

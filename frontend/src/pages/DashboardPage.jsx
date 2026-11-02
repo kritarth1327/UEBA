@@ -83,7 +83,7 @@ export function DashboardPage() {
         <div>
           <h1 className="page-title">Security Operations Overview</h1>
           <p className="page-subtitle">
-            Enterprise entity behavior analytics, behavioral deviation scoring, and prioritized insider threat telemetry.
+            SPEDIA entity behavior analytics, behavioral deviation scoring, and prioritized risk telemetry for analyst review.
           </p>
         </div>
 
@@ -155,14 +155,14 @@ export function DashboardPage() {
 
         <div className="card kpi-card" onClick={() => navigate('/users?sort_by=risk&sort_dir=desc')}>
           <div className="kpi-top">
-            <span className="kpi-label">Elevated Threat Profiles</span>
+            <span className="kpi-label">Elevated Risk Profiles</span>
             <div className="kpi-icon-box">
               <AlertTriangle size={16} className="text-orange" />
             </div>
           </div>
           <div className="kpi-value font-mono">{data?.risk_distribution?.high ?? 0}</div>
           <div className="kpi-subtext text-muted">
-            Hybrid risk score &ge; 70 calibrated threshold
+            Experimental hybrid risk score &ge; 70; not a confirmed threat finding
           </div>
         </div>
 
@@ -173,9 +173,9 @@ export function DashboardPage() {
               <Layers size={16} className="text-teal" />
             </div>
           </div>
-          <div className="kpi-value font-mono">4 Components</div>
+          <div className="kpi-value font-mono">3 SPEDIA Signals</div>
           <div className="kpi-subtext text-muted">
-            General ML + CERT + ANN + Baseline
+            Source-label model + ANN + baseline
           </div>
         </div>
       </div>
@@ -292,7 +292,7 @@ export function DashboardPage() {
             <div className="card dashboard-table-card">
               <div className="table-header-row">
                 <div>
-                  <h3 className="section-title">Highest Risk Entities</h3>
+                  <h3 className="section-title">Highest Hybrid Risk Entities</h3>
                   <span className="section-subtitle text-muted">Ranked by latest multi-signal hybrid score</span>
                 </div>
                 <Link to="/users?sort_by=risk&sort_dir=desc" className="view-link">
