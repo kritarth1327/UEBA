@@ -81,14 +81,21 @@ export const api = {
 
   // Users
   getUsers: (params, signal) => request('/users', { params, signal }),
-  getUserDetail: (userId, signal) => request(`/users/${encodeURIComponent(userId)}`, { signal }),
+
+  getUserDetail: (userId, signal) =>
+    request(`/users/${encodeURIComponent(userId)}`, { signal }),
+
   getUserBehavior: (userId, params, signal) =>
     request(`/users/${encodeURIComponent(userId)}/behavior`, { params, signal }),
+
   getUserRisk: (userId, params, signal) =>
     request(`/users/${encodeURIComponent(userId)}/risk`, { params, signal }),
   getUserBaseline: (userId, signal) =>
     request(`/users/${encodeURIComponent(userId)}/baseline`, { signal }),
 
+  // ANN Anomaly Detection
+  getUserAnomalies: (userId, params, signal) =>
+    request(`/users/${encodeURIComponent(userId)}/anomalies`, { params, signal }),
   // Alerts
   getAlerts: (params, signal) => request('/alerts', { params, signal }),
   getAlertDetail: (alertId, signal) => request(`/alerts/${encodeURIComponent(alertId)}`, { signal }),

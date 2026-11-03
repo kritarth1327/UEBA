@@ -13,11 +13,10 @@ psycopg2-binary>=2.9.10
 numpy>=2.0.0
 pandas>=2.2.0
 
-# Machine Learning & Deep Learning (Integration Boundary)
-# Installed and compatible on Python 3.14.7:
-# scikit-learn>=1.6.0
-# xgboost>=2.1.0
-# torch>=2.5.0
+# Machine Learning & Deep Learning
+scikit-learn>=1.6.0
+torch>=2.5.0
+joblib>=1.4.0
 
 # Testing & Utilities
 pytest>=8.3.0

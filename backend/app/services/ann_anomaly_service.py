@@ -1,15 +1,62 @@
 import json
+import json
 import math
 from pathlib import Path
-from typing import Callable, Optional, Dict, Any, List, Mapping
+from typing import Any, Callable, Dict, List, Mapping, Optional
+
+import joblib
+import numpy as np
+import torch
+from torch import nn
 from app.core.config import settings
 from app.core.logging import logger
 from app.pipeline.schema import SCHEMA_VERSION, FEATURE_NAMES, vectorize
 from app.services.model_interfaces import ScoreResult
 
 
+FEATURES = [
+    "logon_count",
+    "after_hours_logons",
+    "file_copied_removable",
+    "email_count",
+    "email_external_count",
+    "email_attachment_count",
+    "http_request_count",
+    "http_after_hours_count",
+    "removable_device_events",
+    "total_session_duration",
+]
+
+
+class DenseAutoencoder(nn.Module):
+    """Must match the architecture used by scripts/train_autoencoder.py."""
+
+    def __init__(self, input_dim: int):
+        super().__init__()
+
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 16),
+            nn.ReLU(),
+            nn.Linear(16, 8),
+            nn.ReLU(),
+        )
+
+        self.decoder = nn.Sequential(
+            nn.Linear(8, 16),
+            nn.ReLU(),
+            nn.Linear(16, 32),
+            nn.ReLU(),
+            nn.Linear(32, input_dim),
+        )
+
+    def forward(self, x):
+        return self.decoder(self.encoder(x))
+
+
 class ANNAnomalyService:
-    """Service interface for Neural Network Anomaly Detection (Dense Autoencoder)."""
+    """Loads a trained autoencoder and scores daily behavior profiles."""
 
     name = "ann_anomaly"
 
@@ -18,90 +65,305 @@ class ANNAnomalyService:
         """`error_fn` maps a PREPROCESSED vector to reconstruction error (test/owner injection)."""
         self.model_name = "dense_autoencoder"
         self.version = "1.0.0"
-        self.model_path = settings.MODELS_DIR / "dense_autoencoder.pt"
-        # Contract + calibration sidecar, e.g.
-        # {"schema_version","feature_names","preprocessing":{"log1p":bool,"mean":[..],"scale":[..]},
-        #  "threshold": <reconstruction error at the calibration percentile>, "calibration": "p95 of validation error"}
-        self.threshold_path = settings.MODELS_DIR / "autoencoder_threshold.json"
-        self._model = None
-        self._threshold = None
-        self._error_fn = error_fn
-        self._meta = meta
-        if error_fn is None:
-            self._load_model_if_exists()
-            if self.threshold_path.exists():
-                try:
-                    self._meta = json.loads(self.threshold_path.read_text())
-                except Exception as e:
-                    logger.warning(f"Unreadable ANN contract file {self.threshold_path}: {e}")
 
-    def _load_model_if_exists(self):
-        if self.model_path.exists():
-            try:
-                import torch
-                self._model = torch.load(str(self.model_path), weights_only=True)
-                self._model.eval()
-                logger.info(f"Loaded ANN Autoencoder model from {self.model_path}")
-            except Exception as e:
-                logger.warning(f"Found model file at {self.model_path} but failed to load: {e}")
-                self._model = None
-        else:
+        self.model_path = settings.MODELS_DIR / "dense_autoencoder.pt"
+self.scaler_path = settings.MODELS_DIR / "autoencoder_scaler.joblib"
+
+# Contract + calibration sidecar, e.g.
+# {"schema_version", "feature_names",
+#  "preprocessing": {"log1p": bool, "mean": [...], "scale": [...]},
+#  "threshold": <reconstruction error at the calibration percentile>,
+#  "calibration": "p95 of validation error"}  
+        self.threshold_path = settings.MODELS_DIR / "autoencoder_threshold.json"
+        self.metadata_path = settings.MODELS_DIR / "autoencoder_metadata.json"
+
+        self._model = None
+        self._scaler = None
+        self._threshold = None
+self._device = torch.device("cpu")
+self._error_fn = error_fn
+self._meta = meta
+
+if error_fn is None:
+    self._load_model_if_exists()
+
+    if self.threshold_path.exists():
+        try:
+            self._meta = json.loads(self.threshold_path.read_text())
+        except Exception as e:
+            logger.warning(
+                f"Unreadable ANN contract file {self.threshold_path}: {e}"
+            )
+    def _load_model_if_exists(self) -> None:
+        """Load all required artifacts; leave service unavailable on failure."""
+        try:
+            required_paths = [
+                self.model_path,
+                self.scaler_path,
+                self.threshold_path,
+            ]
+            missing = [str(path) for path in required_paths if not path.exists()]
+
+            if missing:
+                logger.warning(
+                    "ANN unavailable; missing artifacts: " + ", ".join(missing)
+                )
+                return
+
+            with open(self.threshold_path, "r", encoding="utf-8") as file:
+                threshold_data = json.load(file)
+
+            threshold = float(threshold_data["threshold"])
+            if not np.isfinite(threshold) or threshold < 0:
+                raise ValueError("Saved anomaly threshold is invalid.")
+
+            scaler = joblib.load(self.scaler_path)
+
+            if not hasattr(scaler, "n_features_in_"):
+                raise ValueError("Saved scaler has no feature-count metadata.")
+
+            if int(scaler.n_features_in_) != len(FEATURES):
+                raise ValueError(
+                    f"Scaler expects {scaler.n_features_in_} features; "
+                    f"service expects {len(FEATURES)}."
+                )
+
+            model = DenseAutoencoder(input_dim=len(FEATURES))
+            state_dict = torch.load(
+                str(self.model_path),
+                map_location="cpu",
+                weights_only=True,
+            )
+            model.load_state_dict(state_dict)
+            model.eval()
+
+            self._model = model
+            self._scaler = scaler
+            self._threshold = threshold
+
+            logger.info(
+                "Loaded ANN autoencoder, scaler, and threshold "
+                f"({self._threshold:.8f})"
+            )
+
+        except Exception as exc:
             self._model = None
+            self._scaler = None
+            self._threshold = None
+            logger.exception(f"Failed to load ANN artifacts: {exc}")
 
     def is_available(self) -> bool:
-        return self._model is not None or self._error_fn is not None
+def is_available(self) -> bool:
+    return (
+        self._model is not None
+        and self._scaler is not None
+        and self._threshold is not None
+    ) or self._error_fn is not None
 
-    def score(self, features: Mapping[str, Optional[float]]) -> ScoreResult:
-        """Stable interface. Anomaly score = err / (err + threshold) in [0, 1): 0.5 exactly at the
-        calibrated threshold (PROVISIONAL mapping; the threshold comes from the training owner)."""
-        if not self.is_available():
-            return ScoreResult.unavailable("ANN artifact not found", self.version)
-        meta = self._meta or {}
-        names, thr = meta.get("feature_names"), meta.get("threshold")
-        if not names or not thr or thr <= 0:
-            return ScoreResult.unavailable("ANN contract file (feature_names, threshold) missing", self.version)
-        if meta.get("schema_version") != SCHEMA_VERSION:
+
+def score(self, features: Mapping[str, Optional[float]]) -> ScoreResult:
+    """
+    Stable interface for the hybrid scoring pipeline.
+    Anomaly score = error / (error + threshold).
+    """
+    if not self.is_available():
+        return ScoreResult.unavailable(
+            "ANN artifact not found", self.version
+        )
+
+    meta = self._meta or {}
+    names = meta.get("feature_names")
+    threshold = meta.get("threshold")
+
+    if (
+        not names
+        or threshold is None
+        or not math.isfinite(float(threshold))
+        or float(threshold) <= 0
+    ):
+        return ScoreResult.unavailable(
+            "ANN contract file (feature_names, threshold) missing",
+            self.version,
+        )
+
+    threshold = float(threshold)
+
+    if meta.get("schema_version") != SCHEMA_VERSION:
+        return ScoreResult.error(
+            f"schema_version mismatch: model={meta.get('schema_version')} "
+            f"engine={SCHEMA_VERSION}",
+            self.version,
+        )
+
+    if any(name not in FEATURE_NAMES for name in names):
+        return ScoreResult.error(
+            "model expects features outside the shared schema",
+            self.version,
+        )
+
+    vec = vectorize(features, names)
+
+    if any(not math.isfinite(v) for v in vec):
+        missing = [
+            name for name, value in zip(names, vec)
+            if not math.isfinite(value)
+        ]
+        return ScoreResult.error(
+            f"required features missing/unavailable: {missing}",
+            self.version,
+        )
+
+    preprocessing = meta.get("preprocessing") or {}
+
+    if preprocessing.get("log1p"):
+        vec = [math.log1p(max(v, 0.0)) for v in vec]
+
+    if preprocessing.get("mean") and preprocessing.get("scale"):
+        means = preprocessing["mean"]
+        scales = preprocessing["scale"]
+
+        if len(vec) != len(means) or len(vec) != len(scales):
             return ScoreResult.error(
-                f"schema_version mismatch: model={meta.get('schema_version')} engine={SCHEMA_VERSION}", self.version)
-        if any(n not in FEATURE_NAMES for n in names):
-            return ScoreResult.error("model expects features outside the shared schema", self.version)
-        vec = vectorize(features, names)
-        if any(math.isnan(v) for v in vec):
-            missing = [n for n, v in zip(names, vec) if math.isnan(v)]
-            return ScoreResult.error(f"required features missing/unavailable: {missing}", self.version)
-        pre = meta.get("preprocessing") or {}
-        if pre.get("log1p"):
-            vec = [math.log1p(max(v, 0.0)) for v in vec]
-        if pre.get("mean") and pre.get("scale"):
-            vec = [(v - m) / (sc if sc else 1.0) for v, m, sc in zip(vec, pre["mean"], pre["scale"])]
-        err = self._error_fn(vec) if self._error_fn is not None else self.predict_reconstruction_error(vec)
-        if err is None or not math.isfinite(err) or err < 0:
-            return ScoreResult.error("invalid reconstruction error", self.version)
-        return ScoreResult.ok(err / (err + thr), err, meta.get("model_version", self.version))
+                "preprocessing dimensions do not match feature dimensions",
+                self.version,
+            )
 
-    def predict_reconstruction_error(self, feature_vector: List[float]) -> Optional[float]:
-        """Runs autoencoder forward pass and calculates MSE reconstruction error."""
+        vec = [
+            (value - mean) / (scale if scale else 1.0)
+            for value, mean, scale in zip(vec, means, scales)
+        ]
+
+    if self._error_fn is not None:
+        error = self._error_fn(vec)
+    elif self._model is not None:
+        tensor_in = torch.tensor(
+            np.asarray(vec, dtype=np.float32)
+        ).reshape(1, -1)
+
+        with torch.no_grad():
+            reconstruction = self._model(tensor_in)
+            error = torch.mean(
+                (tensor_in - reconstruction) ** 2
+            ).item()
+    else:
+        return ScoreResult.unavailable(
+            "ANN model unavailable", self.version
+        )
+
+    if (
+        error is None
+        or not math.isfinite(float(error))
+        or float(error) < 0
+    ):
+        return ScoreResult.error(
+            "invalid reconstruction error", self.version
+        )
+
+    error = float(error)
+
+    return ScoreResult.ok(
+        error / (error + threshold),
+        error,
+        meta.get("model_version", self.version),
+    )
+
+    def predict(self, feature_vector: List[float]) -> Optional[Dict[str, Any]]:
+        """
+        Score one profile in the same preprocessing space as training.
+
+        Input order must match FEATURES. Values must be raw, nonnegative
+        behavior counts/durations, not pre-scaled or log-transformed values.
+        """
         if not self.is_available():
             return None
 
-        import torch
-        import numpy as np
+        try:
+            values = np.asarray(feature_vector, dtype=np.float64)
 
-        with torch.no_grad():
-            tensor_in = torch.tensor([feature_vector], dtype=torch.float32)
-            reconstruction = self._model(tensor_in)
-            loss = torch.mean((tensor_in - reconstruction) ** 2).item()
-            return float(loss)
+            if values.ndim != 1 or values.size != len(FEATURES):
+                raise ValueError(
+                    f"Expected {len(FEATURES)} features in this order: {FEATURES}"
+                )
+
+            if not np.isfinite(values).all():
+                raise ValueError("Features must all be finite numbers.")
+
+            if (values < 0).any():
+                raise ValueError("Behavior counts and durations must be nonnegative.")
+
+            # Exactly match training: log1p first, then fitted StandardScaler.
+            transformed = np.log1p(values.reshape(1, -1))
+            scaled = self._scaler.transform(transformed).astype(np.float32)
+
+            tensor_in = torch.from_numpy(scaled)
+
+            with torch.no_grad():
+                reconstruction = self._model(tensor_in)
+                error = torch.mean((tensor_in - reconstruction) ** 2).item()
+
+            if not np.isfinite(error):
+                raise ValueError("Model returned a non-finite reconstruction error.")
+
+            return {
+                "model_name": self.model_name,
+                "model_version": self.version,
+                "ann_anomaly_score": float(error),
+                "threshold": float(self._threshold),
+                "is_anomaly_candidate": bool(error > self._threshold),
+                "features_used": FEATURES.copy(),
+                "interpretation": (
+                    "Anomaly candidate: reconstruction error exceeds the "
+                    "validation threshold. This is not proof of malicious activity."
+                    if error > self._threshold
+                    else "Reconstruction error is at or below the validation threshold."
+                ),
+            }
+
+        except (TypeError, ValueError) as exc:
+            logger.warning(f"ANN inference input error: {exc}")
+            raise
+        except Exception as exc:
+            logger.exception(f"ANN inference failed: {exc}")
+            raise RuntimeError("ANN inference failed.") from exc
+
+    def predict_reconstruction_error(
+        self, feature_vector: List[float]
+    ) -> Optional[float]:
+        """Backward-compatible interface returning only the reconstruction error."""
+        result = self.predict(feature_vector)
+        return None if result is None else result["ann_anomaly_score"]
 
     def get_info(self) -> Dict[str, Any]:
         return {
             "model_name": self.model_name,
             "version": self.version,
             "is_available": self.is_available(),
-            "artifact_path": str(self.model_path) if self.model_path.exists() else None,
-            "contract_file_present": self.threshold_path.exists() or self._meta is not None,
-            "architecture": "Dense Autoencoder (Input -> 32 -> 16 -> 8 -> 16 -> 32 -> Output)",
-            "message": "Autoencoder ready for inference" if self.is_available() else "ANN Autoencoder artifact not found. Awaiting CERT dataset training."
+"artifact_path": (
+    str(self.model_path) if self.model_path.exists() else None
+),
+"scaler_path": (
+    str(self.scaler_path) if self.scaler_path.exists() else None
+),
+"contract_file_present": (
+    self.threshold_path.exists() or self._meta is not None
+),
+"threshold": self._threshold,
+"feature_count": len(FEATURES),
+"features": FEATURES.copy(),
+"architecture": (
+    "Dense Autoencoder (Input -> 32 -> 16 -> 8 -> 16 -> 32 -> Output)"
+),
+"preprocessing": ["log1p", "saved StandardScaler"],
+"message": (
+    "Autoencoder, scaler, and threshold loaded; inference available."
+    if self.is_available()
+    else "ANN unavailable. Check model, scaler, and threshold artifacts."
+),
+"threshold_note": (
+    "The threshold is the 99th percentile of validation reconstruction "
+    "errors. Above-threshold profiles are anomaly candidates, not "
+    "confirmed security incidents."
+),
         }
 
 

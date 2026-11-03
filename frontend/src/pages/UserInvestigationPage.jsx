@@ -61,6 +61,9 @@ export function UserInvestigationPage() {
   const [riskData, setRiskData] = useState(null);
   const [baselineData, setBaselineData] = useState(null);
   const [alerts, setAlerts] = useState([]);
+  // Results from the trained dense autoencoder
+  const [annData, setAnnData] = useState(null);
+  const [annError, setAnnError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -97,7 +100,27 @@ export function UserInvestigationPage() {
       setBehavior(bRes);
       setRiskData(rRes);
       setAlerts(aRes?.items || []);
+<<      // Store the backend personal baseline response.
       setBaselineData(blRes);
+
+      // Fetch ANN scores independently so ANN failures don't break
+      // the rest of the investigation page.
+      try {
+        const annRes = await api.getUserAnomalies(userId, {
+          start_date: startDate || undefined,
+          end_date: endDate || undefined,
+          limit: 1000,
+        });
+
+        setAnnData(annRes);
+        setAnnError(null);
+      } catch (annErr) {
+        setAnnData(null);
+        setAnnError(
+          annErr.message || 'Unable to retrieve ANN anomaly results.'
+        );
+        console.error('ANN anomaly request failed:', annErr);
+      }
 
       if (bRes?.profiles?.length > 0 && !selectedDayDate) {
         setSelectedDayDate(bRes.profiles[bRes.profiles.length - 1].date);
@@ -172,10 +195,68 @@ export function UserInvestigationPage() {
   const behaviorProfiles = behavior?.profiles || [];
   const riskHistory = riskData?.history || [];
 
+  // ANN results returned by the trained autoencoder
+  const annResults = annData?.results || [];
+
+  // Use the latest available result by date.
+  const latestAnn = [...annResults].sort((a, b) =>
+    String(b.date).localeCompare(String(a.date))
+  )[0] || null;
+
+  // Match the ANN score to the currently selected behavioral day.
+  const activeAnn = selectedDayDate
+    ? annResults.find((result) => result.date === selectedDayDate) || null
+    : latestAnn;
   // Selected day profile
   const activeProfile = selectedDayDate
     ? behaviorProfiles.find((p) => p.date === selectedDayDate) || behaviorProfiles[behaviorProfiles.length - 1]
     : behaviorProfiles[behaviorProfiles.length - 1];
+      // Calculate personal baselines using only profiles before the selected day.
+  // This prevents the day being investigated from influencing its own baseline.
+  const baselineProfiles = activeProfile
+  ? behaviorProfiles.filter(
+      (profile) => String(profile.date) < String(activeProfile.date)
+    )
+  : [];
+
+const getBaselineStats = (feature) => {
+  const values = baselineProfiles
+    .map((profile) => Number(profile[feature]))
+    .filter((value) => Number.isFinite(value));
+
+  if (values.length === 0) {
+    return null;
+  }
+
+  const mean =
+    values.reduce((sum, value) => sum + value, 0) / values.length;
+
+  const variance =
+    values.reduce((sum, value) => sum + (value - mean) ** 2, 0) /
+    values.length;
+
+  return {
+    mean,
+    std: Math.sqrt(variance),
+    count: values.length,
+  };
+};
+
+const getDeviation = (observed, stats) => {
+  if (!stats || stats.std === 0) {
+    return null;
+  }
+
+  return (Number(observed) - stats.mean) / stats.std;
+};
+
+const baselineFeatures = {
+  logon_count: getBaselineStats('logon_count'),
+  after_hours_logons: getBaselineStats('after_hours_logons'),
+  removable_device_events: getBaselineStats('removable_device_events'),
+  email_external_count: getBaselineStats('email_external_count'),
+  total_session_duration: getBaselineStats('total_session_duration'),
+};
 
   return (
     <div className="investigation-page">
@@ -366,14 +447,42 @@ export function UserInvestigationPage() {
           </div>
 
           <div className="signal-metric-area">
-            {latestPred?.ann_anomaly_score !== null && latestPred?.ann_anomaly_score !== undefined ? (
-              <div className="signal-metric-val font-mono">
-                {latestPred.ann_anomaly_score.toFixed(4)}
-              </div>
+            {latestAnn ? (
+              <>
+                <div className="signal-metric-val font-mono">
+                  {Number(latestAnn.ann_anomaly_score).toFixed(6)}
+                </div>
+
+                <div style={{ marginTop: 8 }}>
+                  <span
+                    className={`badge ${
+                      latestAnn.is_anomaly_candidate
+                        ? 'badge-critical'
+                        : 'badge-low'
+                    }`}
+                  >
+                    {latestAnn.is_anomaly_candidate
+                      ? 'Anomaly Candidate'
+                      : 'Below Threshold'}
+                  </span>
+                </div>
+
+                <div className="text-muted" style={{ marginTop: 8, fontSize: 12 }}>
+                  Threshold: {Number(latestAnn.threshold).toFixed(6)}
+                </div>
+
+                <div className="text-muted" style={{ marginTop: 4, fontSize: 12 }}>
+                  Observed: {formatDate(latestAnn.date)}
+                </div>
+              </>
             ) : (
               <div className="signal-unavailable-text">
                 <Clock size={13} />
-                <span>Unavailable (Awaiting Model Weights)</span>
+                <span>
+                  {annError
+                    ? 'ANN results unavailable'
+                    : 'No ANN results available'}
+                </span>
               </div>
             )}
           </div>
@@ -490,6 +599,108 @@ export function UserInvestigationPage() {
         )}
       </div>
 
+      {/* ANN Reconstruction Error Timeline */}
+      <div className="card section-card">
+        <div className="section-card-header">
+          <div>
+            <h3 className="section-title">
+              ANN Anomaly Detection Timeline
+            </h3>
+
+            <span className="section-subtitle text-muted">
+              Daily reconstruction errors compared against the trained model's
+              validation threshold.
+            </span>
+          </div>
+
+          {annData && (
+            <span className="badge badge-neutral">
+              {annData.anomaly_candidates} candidates
+            </span>
+          )}
+        </div>
+
+        {annError ? (
+          <div className="table-empty-notice text-muted">
+            {annError}
+          </div>
+        ) : annResults.length === 0 ? (
+          <div className="table-empty-notice text-muted">
+            No ANN results available for the selected period.
+          </div>
+        ) : (
+          <>
+            <div style={{ height: 260, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={[...annResults].sort((a, b) =>
+                    String(a.date).localeCompare(String(b.date))
+                  )}
+                  margin={{ top: 10, right: 24, left: 12, bottom: 0 }}
+                  onClick={(event) => {
+                    if (event?.activeLabel) {
+                      setSelectedDayDate(event.activeLabel);
+                    }
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#edf2f7" />
+
+                  <XAxis
+                    dataKey="date"
+                    stroke="#94a3b8"
+                    fontSize={11}
+                    tickFormatter={formatDate}
+                  />
+
+                  <YAxis
+                    stroke="#94a3b8"
+                    fontSize={11}
+                    domain={[0, 'auto']}
+                  />
+
+                  <Tooltip
+                    labelFormatter={(date) => `Date: ${formatDate(date)}`}
+                    formatter={(value, name) => [
+                      Number(value).toFixed(6),
+                      name,
+                    ]}
+                  />
+
+                  <Legend />
+
+                  <Line
+                    type="monotone"
+                    dataKey="ann_anomaly_score"
+                    name="Reconstruction Error"
+                    stroke="#7c3aed"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 5 }}
+                  />
+
+                  <Line
+                    type="monotone"
+                    dataKey="threshold"
+                    name="Detection Threshold"
+                    stroke="#c2410c"
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                    dot={false}
+                    activeDot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <p className="text-muted" style={{ fontSize: 12, marginTop: 12 }}>
+              Profiles above the threshold are anomaly candidates, not
+              confirmed malicious activity. Select a date on the chart to
+              inspect that day's behavioral profile.
+            </p>
+          </>
+        )}
+      </div>
+
       {/* Day Inspector & Personal Baseline Comparison */}
       {activeProfile && (
         <div className="card section-card">
@@ -544,6 +755,96 @@ export function UserInvestigationPage() {
               </button>
             </div>
           </div>
+                    {/* ANN result for the currently selected day */}
+                    <div
+            style={{
+              marginBottom: 20,
+              padding: 16,
+              borderRadius: 10,
+              border: `1px solid ${
+                activeAnn?.is_anomaly_candidate ? '#fca5a5' : '#cbd5e1'
+              }`,
+              background: activeAnn?.is_anomaly_candidate
+                ? '#fef2f2'
+                : '#f8fafc',
+            }}
+          >
+            <h4 style={{ margin: '0 0 12px', fontSize: 15 }}>
+              Neural Autoencoder — Selected Day Assessment
+            </h4>
+
+            {activeAnn ? (
+              <>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                    gap: 16,
+                  }}
+                >
+                  <div>
+                    <div className="text-muted" style={{ fontSize: 12 }}>
+                      Selected Date
+                    </div>
+                    <div className="font-mono font-bold">
+                      {formatDate(activeAnn.date)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-muted" style={{ fontSize: 12 }}>
+                      Reconstruction Error
+                    </div>
+                    <div className="font-mono font-bold">
+                      {Number(activeAnn.ann_anomaly_score).toFixed(6)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-muted" style={{ fontSize: 12 }}>
+                      Detection Threshold
+                    </div>
+                    <div className="font-mono font-bold">
+                      {Number(activeAnn.threshold).toFixed(6)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-muted" style={{ fontSize: 12 }}>
+                      Detection Status
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      <span
+                        className={`badge ${
+                          activeAnn.is_anomaly_candidate
+                            ? 'badge-critical'
+                            : 'badge-low'
+                        }`}
+                      >
+                        {activeAnn.is_anomaly_candidate
+                          ? 'Anomaly Candidate'
+                          : 'Below Threshold'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <p
+                  className="text-muted"
+                  style={{ fontSize: 12, margin: '14px 0 0' }}
+                >
+                  {activeAnn.is_anomaly_candidate
+                    ? 'This day exceeded the trained autoencoder threshold. Investigate the associated behavior before drawing conclusions.'
+                    : 'This day did not exceed the trained autoencoder threshold. This does not guarantee that the activity is benign.'}
+                </p>
+              </>
+            ) : (
+              <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
+                No ANN result is available for this date. Select a date with a
+                matching ANN assessment to inspect its reconstruction error.
+              </p>
+            )}
+          </div>
 
           {!baselineData?.has_baseline && (
             <div className="baseline-pending-callout">
@@ -580,57 +881,97 @@ export function UserInvestigationPage() {
                   { key: 'email_attachment_count', label: 'Email Attachments Sent', unit: '' },
                   { key: 'http_after_hours_count', label: 'Off-Hours HTTP Web Requests', unit: '' },
                   { key: 'total_session_duration', label: 'Total Active Session Duration', unit: ' hrs', isFloat: true },
-                ].map((dim) => {
-                  const obsVal = activeProfile[dim.key] ?? 0;
-                  const displayObs = dim.isFloat ? `${obsVal.toFixed(1)}${dim.unit}` : `${obsVal}${dim.unit}`;
-                  const bMetric = baselineData?.baseline?.metrics?.[dim.key];
+                ]
+                  .filter((dim) =>
+                    activeProfile[dim.key] !== undefined &&
+                    activeProfile[dim.key] !== null
+                  )
+                  .map((dim) => {
+                    const obsVal = Number(activeProfile[dim.key]);
+                    const displayObs = dim.isFloat
+                      ? `${obsVal.toFixed(1)}${dim.unit}`
+                      : `${obsVal}${dim.unit}`;
 
-                  if (baselineData?.has_baseline && bMetric) {
-                    const mean = bMetric.mean;
-                    const std = bMetric.std;
-                    const effectiveStd = std > 1e-4 ? std : 1.0;
-                    const zScore = (obsVal - mean) / effectiveStd;
-                    const isAnomalous = Math.abs(zScore) >= 2.5;
-                    const isElevated = Math.abs(zScore) >= 1.5 && Math.abs(zScore) < 2.5;
+                    const bMetric = baselineData?.baseline?.metrics?.[dim.key];
+                    const hasBaseline =
+                      baselineData?.has_baseline &&
+                      bMetric &&
+                      Number.isFinite(Number(bMetric.mean)) &&
+                      Number.isFinite(Number(bMetric.std));
+
+                    if (hasBaseline) {
+                      const mean = Number(bMetric.mean);
+                      const std = Number(bMetric.std);
+                      const effectiveStd = std > 1e-4 ? std : 1.0;
+                      const zScore = (obsVal - mean) / effectiveStd;
+
+                      const isAnomalous = Math.abs(zScore) >= 2.5;
+                      const isElevated =
+                        Math.abs(zScore) >= 1.5 && Math.abs(zScore) < 2.5;
+
+                      return (
+                        <tr key={dim.key}>
+                          <td className="font-medium text-primary">
+                            {dim.label}
+                          </td>
+                          <td className={`font-mono font-bold ${
+                            isAnomalous
+                              ? 'text-critical'
+                              : isElevated
+                                ? 'text-amber'
+                                : ''
+                          }`}>
+                            {displayObs}
+                          </td>
+                          <td className="font-mono text-muted">
+                            {mean.toFixed(2)}{dim.unit}
+                          </td>
+                          <td className="font-mono text-muted">
+                            {std.toFixed(2)}
+                          </td>
+                          <td className="font-mono font-semibold">
+                            {zScore >= 0
+                              ? `+${zScore.toFixed(2)}`
+                              : zScore.toFixed(2)}&sigma;
+                          </td>
+                          <td>
+                            {isAnomalous ? (
+                              <span className="badge badge-critical">
+                                Anomalous
+                              </span>
+                            ) : isElevated ? (
+                              <span className="badge badge-medium">
+                                Elevated
+                              </span>
+                            ) : (
+                              <span className="badge badge-low">
+                                Normal
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    }
 
                     return (
                       <tr key={dim.key}>
-                        <td className="font-medium text-primary">{dim.label}</td>
-                        <td className={`font-mono font-bold ${isAnomalous ? 'text-critical' : isElevated ? 'text-amber' : ''}`}>
+                        <td className="font-medium text-primary">
+                          {dim.label}
+                        </td>
+                        <td className="font-mono font-bold">
                           {displayObs}
                         </td>
-                        <td className="font-mono text-muted">{mean.toFixed(2)}{dim.unit}</td>
-                        <td className="font-mono text-muted">{std.toFixed(2)}</td>
-                        <td className="font-mono font-semibold">
-                          {zScore >= 0 ? `+${zScore.toFixed(2)}` : zScore.toFixed(2)}&sigma;
-                        </td>
+                        <td className="font-mono text-muted">—</td>
+                        <td className="font-mono text-muted">—</td>
+                        <td className="font-mono text-muted">—</td>
                         <td>
-                          {isAnomalous ? (
-                            <span className="badge badge-critical">Anomalous</span>
-                          ) : isElevated ? (
-                            <span className="badge badge-medium">Elevated</span>
-                          ) : (
-                            <span className="badge badge-low">Normal</span>
-                          )}
+                          <span className="badge badge-neutral">
+                            Observed (Uncalibrated)
+                          </span>
                         </td>
                       </tr>
                     );
-                  }
-
-                  // Truthful uncalibrated baseline representation
-                  return (
-                    <tr key={dim.key}>
-                      <td className="font-medium text-primary">{dim.label}</td>
-                      <td className="font-mono font-bold">{displayObs}</td>
-                      <td className="font-mono text-muted">—</td>
-                      <td className="font-mono text-muted">—</td>
-                      <td className="font-mono text-muted">—</td>
-                      <td>
-                        <span className="badge badge-neutral">Observed (Uncalibrated)</span>
-                      </td>
-                    </tr>
-                  );
-                })}
+                  })}
               </tbody>
             </table>
           </div>

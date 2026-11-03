@@ -45,6 +45,9 @@ pnpm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+# Trained ML model artifacts
+backend/artifacts/
+
 # Local Python environment
 .venv311/
 
@@ -55,12 +58,7 @@ backend/data/raw/*
 
 # Local backups
 *.bak
-
-# Local timestamped backups
 *.backup_*
-
-# Generated model artifacts
-backend/artifacts/
 
 # Environment variants
 .env.*
