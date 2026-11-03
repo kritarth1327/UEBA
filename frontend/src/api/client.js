@@ -90,6 +90,8 @@ export const api = {
 
   getUserRisk: (userId, params, signal) =>
     request(`/users/${encodeURIComponent(userId)}/risk`, { params, signal }),
+  getUserBaseline: (userId, signal) =>
+    request(`/users/${encodeURIComponent(userId)}/baseline`, { signal }),
 
   // ANN Anomaly Detection
   getUserAnomalies: (userId, params, signal) =>

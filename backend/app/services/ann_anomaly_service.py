@@ -1,13 +1,17 @@
 import json
-from typing import Any, Dict, List, Optional
+import json
+import math
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 import joblib
 import numpy as np
 import torch
 from torch import nn
-
 from app.core.config import settings
 from app.core.logging import logger
+from app.pipeline.schema import SCHEMA_VERSION, FEATURE_NAMES, vectorize
+from app.services.model_interfaces import ScoreResult
 
 
 FEATURES = [
@@ -54,21 +58,42 @@ class DenseAutoencoder(nn.Module):
 class ANNAnomalyService:
     """Loads a trained autoencoder and scores daily behavior profiles."""
 
-    def __init__(self):
+    name = "ann_anomaly"
+
+    def __init__(self, error_fn: Optional[Callable[[List[float]], float]] = None,
+                 meta: Optional[Dict[str, Any]] = None):
+        """`error_fn` maps a PREPROCESSED vector to reconstruction error (test/owner injection)."""
         self.model_name = "dense_autoencoder"
         self.version = "1.0.0"
 
         self.model_path = settings.MODELS_DIR / "dense_autoencoder.pt"
-        self.scaler_path = settings.MODELS_DIR / "autoencoder_scaler.joblib"
+self.scaler_path = settings.MODELS_DIR / "autoencoder_scaler.joblib"
+
+# Contract + calibration sidecar, e.g.
+# {"schema_version", "feature_names",
+#  "preprocessing": {"log1p": bool, "mean": [...], "scale": [...]},
+#  "threshold": <reconstruction error at the calibration percentile>,
+#  "calibration": "p95 of validation error"}  
         self.threshold_path = settings.MODELS_DIR / "autoencoder_threshold.json"
         self.metadata_path = settings.MODELS_DIR / "autoencoder_metadata.json"
 
         self._model = None
         self._scaler = None
         self._threshold = None
-        self._device = torch.device("cpu")
-        self._load_model_if_exists()
+self._device = torch.device("cpu")
+self._error_fn = error_fn
+self._meta = meta
 
+if error_fn is None:
+    self._load_model_if_exists()
+
+    if self.threshold_path.exists():
+        try:
+            self._meta = json.loads(self.threshold_path.read_text())
+        except Exception as e:
+            logger.warning(
+                f"Unreadable ANN contract file {self.threshold_path}: {e}"
+            )
     def _load_model_if_exists(self) -> None:
         """Load all required artifacts; leave service unavailable on failure."""
         try:
@@ -128,11 +153,119 @@ class ANNAnomalyService:
             logger.exception(f"Failed to load ANN artifacts: {exc}")
 
     def is_available(self) -> bool:
-        return (
-            self._model is not None
-            and self._scaler is not None
-            and self._threshold is not None
+def is_available(self) -> bool:
+    return (
+        self._model is not None
+        and self._scaler is not None
+        and self._threshold is not None
+    ) or self._error_fn is not None
+
+
+def score(self, features: Mapping[str, Optional[float]]) -> ScoreResult:
+    """
+    Stable interface for the hybrid scoring pipeline.
+    Anomaly score = error / (error + threshold).
+    """
+    if not self.is_available():
+        return ScoreResult.unavailable(
+            "ANN artifact not found", self.version
         )
+
+    meta = self._meta or {}
+    names = meta.get("feature_names")
+    threshold = meta.get("threshold")
+
+    if (
+        not names
+        or threshold is None
+        or not math.isfinite(float(threshold))
+        or float(threshold) <= 0
+    ):
+        return ScoreResult.unavailable(
+            "ANN contract file (feature_names, threshold) missing",
+            self.version,
+        )
+
+    threshold = float(threshold)
+
+    if meta.get("schema_version") != SCHEMA_VERSION:
+        return ScoreResult.error(
+            f"schema_version mismatch: model={meta.get('schema_version')} "
+            f"engine={SCHEMA_VERSION}",
+            self.version,
+        )
+
+    if any(name not in FEATURE_NAMES for name in names):
+        return ScoreResult.error(
+            "model expects features outside the shared schema",
+            self.version,
+        )
+
+    vec = vectorize(features, names)
+
+    if any(not math.isfinite(v) for v in vec):
+        missing = [
+            name for name, value in zip(names, vec)
+            if not math.isfinite(value)
+        ]
+        return ScoreResult.error(
+            f"required features missing/unavailable: {missing}",
+            self.version,
+        )
+
+    preprocessing = meta.get("preprocessing") or {}
+
+    if preprocessing.get("log1p"):
+        vec = [math.log1p(max(v, 0.0)) for v in vec]
+
+    if preprocessing.get("mean") and preprocessing.get("scale"):
+        means = preprocessing["mean"]
+        scales = preprocessing["scale"]
+
+        if len(vec) != len(means) or len(vec) != len(scales):
+            return ScoreResult.error(
+                "preprocessing dimensions do not match feature dimensions",
+                self.version,
+            )
+
+        vec = [
+            (value - mean) / (scale if scale else 1.0)
+            for value, mean, scale in zip(vec, means, scales)
+        ]
+
+    if self._error_fn is not None:
+        error = self._error_fn(vec)
+    elif self._model is not None:
+        tensor_in = torch.tensor(
+            np.asarray(vec, dtype=np.float32)
+        ).reshape(1, -1)
+
+        with torch.no_grad():
+            reconstruction = self._model(tensor_in)
+            error = torch.mean(
+                (tensor_in - reconstruction) ** 2
+            ).item()
+    else:
+        return ScoreResult.unavailable(
+            "ANN model unavailable", self.version
+        )
+
+    if (
+        error is None
+        or not math.isfinite(float(error))
+        or float(error) < 0
+    ):
+        return ScoreResult.error(
+            "invalid reconstruction error", self.version
+        )
+
+    error = float(error)
+
+    return ScoreResult.ok(
+        error / (error + threshold),
+        error,
+        meta.get("model_version", self.version),
+    )
 
     def predict(self, feature_vector: List[float]) -> Optional[Dict[str, Any]]:
         """
@@ -205,29 +338,32 @@ class ANNAnomalyService:
             "model_name": self.model_name,
             "version": self.version,
             "is_available": self.is_available(),
-            "artifact_path": (
-                str(self.model_path) if self.model_path.exists() else None
-            ),
-            "scaler_path": (
-                str(self.scaler_path) if self.scaler_path.exists() else None
-            ),
-            "threshold": self._threshold,
-            "feature_count": len(FEATURES),
-            "features": FEATURES.copy(),
-            "architecture": (
-                "Dense Autoencoder (Input -> 32 -> 16 -> 8 -> 16 -> 32 -> Output)"
-            ),
-            "preprocessing": ["log1p", "saved StandardScaler"],
-            "message": (
-                "Autoencoder, scaler, and threshold loaded; inference available."
-                if self.is_available()
-                else "ANN unavailable. Check model, scaler, and threshold artifacts."
-            ),
-            "threshold_note": (
-                "The threshold is the 99th percentile of validation reconstruction "
-                "errors. Above-threshold profiles are anomaly candidates, not "
-                "confirmed security incidents."
-            ),
+"artifact_path": (
+    str(self.model_path) if self.model_path.exists() else None
+),
+"scaler_path": (
+    str(self.scaler_path) if self.scaler_path.exists() else None
+),
+"contract_file_present": (
+    self.threshold_path.exists() or self._meta is not None
+),
+"threshold": self._threshold,
+"feature_count": len(FEATURES),
+"features": FEATURES.copy(),
+"architecture": (
+    "Dense Autoencoder (Input -> 32 -> 16 -> 8 -> 16 -> 32 -> Output)"
+),
+"preprocessing": ["log1p", "saved StandardScaler"],
+"message": (
+    "Autoencoder, scaler, and threshold loaded; inference available."
+    if self.is_available()
+    else "ANN unavailable. Check model, scaler, and threshold artifacts."
+),
+"threshold_note": (
+    "The threshold is the 99th percentile of validation reconstruction "
+    "errors. Above-threshold profiles are anomaly candidates, not "
+    "confirmed security incidents."
+),
         }
 
 

@@ -33,5 +33,27 @@ class Settings:
     PROCESSED_DATA_DIR: Path = Path(os.getenv("PROCESSED_DATA_DIR", str(BASE_DIR.parent / "data" / "processed")))
     MODELS_DIR: Path = Path(os.getenv("MODELS_DIR", str(BASE_DIR / "artifacts")))
 
+    # Dataset locations (never committed; see data/README.md)
+    SPEDIA_FILE: Path = Path(os.getenv(
+        "SPEDIA_FILE", str(BASE_DIR.parent / "data" / "raw" / "spedia" / "logs_SPEDIA_annotated_en.csv")
+    ))
+    CERT_R42_DIR: Path = Path(os.getenv("CERT_R42_DIR", str(BASE_DIR.parent / "data" / "raw" / "r4.2")))
+
+    # Ingestion
+    INGEST_CHUNK_SIZE: int = int(os.getenv("INGEST_CHUNK_SIZE", "50000"))
+    BUSINESS_HOURS_START: int = int(os.getenv("BUSINESS_HOURS_START", "8"))
+    BUSINESS_HOURS_END: int = int(os.getenv("BUSINESS_HOURS_END", "18"))
+    INTERNAL_EMAIL_DOMAINS: List[str] = [
+        d.strip().lower() for d in os.getenv("INTERNAL_EMAIL_DOMAINS", "dtaa.com").split(",") if d.strip()
+    ]
+
+    # Personal baselines (PROVISIONAL defaults; see docs/baselines.md)
+    BASELINE_MIN_SAMPLES: int = int(os.getenv("BASELINE_MIN_SAMPLES", "14"))
+    BASELINE_MAX_WINDOW_DAYS: int = int(os.getenv("BASELINE_MAX_WINDOW_DAYS", "90"))
+    BASELINE_SCALE_FLOOR: float = float(os.getenv("BASELINE_SCALE_FLOOR", "1.0"))
+
+    # Optional JSON file overriding risk weights/thresholds (PROVISIONAL defaults otherwise)
+    RISK_CONFIG_PATH: str | None = os.getenv("RISK_CONFIG_PATH") or None
+
 
 settings = Settings()

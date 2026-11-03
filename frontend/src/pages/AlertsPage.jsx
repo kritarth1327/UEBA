@@ -15,13 +15,16 @@ import {
   Save,
   X,
   FileCode,
+  Shield,
+  ArrowRight,
+  RotateCcw,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useDebounce } from '../hooks/useDebounce';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { EmptyState } from '../components/EmptyState';
-import { Modal } from '../components/Modal';
+import { Drawer } from '../components/Drawer';
 import {
   formatDate,
   formatDateTime,
@@ -50,7 +53,7 @@ export function AlertsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Selected Alert for Detail Modal & Triage
+  // Selected Alert for Slide-Over Triage Drawer
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [newStatus, setNewStatus] = useState('');
   const [statusNotes, setStatusNotes] = useState('');
@@ -91,7 +94,7 @@ export function AlertsPage() {
     fetchAlerts();
   }, [severity, status, debouncedSearch, page]);
 
-  const openAlertModal = (alert) => {
+  const openAlertDrawer = (alert) => {
     setSelectedAlert(alert);
     setNewStatus(alert.status);
     setStatusNotes(alert.notes || '');
@@ -99,7 +102,7 @@ export function AlertsPage() {
     setUpdateError(null);
   };
 
-  const closeAlertModal = () => {
+  const closeAlertDrawer = () => {
     setSelectedAlert(null);
     setUpdateSuccess(null);
     setUpdateError(null);
@@ -119,7 +122,7 @@ export function AlertsPage() {
         notes: statusNotes,
       });
       setSelectedAlert(updated);
-      setUpdateSuccess(`Status successfully persisted to ${updated.status}.`);
+      setUpdateSuccess(`Incident #${updated.id} status updated to ${updated.status}.`);
       fetchAlerts();
     } catch (err) {
       setUpdateError(err.message || 'Failed to persist status changes.');
@@ -137,28 +140,29 @@ export function AlertsPage() {
 
   return (
     <div className="alerts-page">
+      {/* Page Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Security Alert Investigation Queue</h1>
+          <h1 className="page-title">Security Alert Triage Queue</h1>
           <p className="page-subtitle">
-            Prioritized incidents generated from ML threat scoring, ANN reconstruction anomalies, and personal baseline deviations.
+            Prioritized incidents generated from XGBoost threat classification, autoencoder anomalies, and baseline violations.
           </p>
         </div>
 
-        <div className="alerts-count-tag font-mono">
+        <div className="alerts-queue-stat font-mono">
           <ShieldAlert size={14} className="text-amber" />
-          <span>{data?.total ?? 0} Recorded Incidents</span>
+          <span>{data?.total ?? 0} Total Incidents in Queue</span>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="card alerts-filter-bar">
-        <div className="search-box">
-          <Search size={15} className="search-icon text-muted" />
+      {/* Filter and Triage Bar */}
+      <div className="card triage-filter-strip">
+        <div className="triage-search-box">
+          <Search size={14} className="search-ico text-muted" />
           <input
             type="text"
-            className="search-field"
-            placeholder="Search by User ID, employee name, or incident reason..."
+            className="triage-search-input"
+            placeholder="Search incident reason, User ID, or employee name..."
             value={searchInput}
             onChange={(e) => {
               setSearchInput(e.target.value);
@@ -168,35 +172,65 @@ export function AlertsPage() {
           {searchInput && (
             <button
               type="button"
-              className="clear-search-btn"
+              className="clear-btn"
               onClick={() => {
                 setSearchInput('');
                 setPage(1);
               }}
             >
-              <X size={14} />
+              <X size={13} />
             </button>
           )}
         </div>
 
-        <div className="filter-dropdowns">
-          <select
-            className="styled-select"
-            value={severity}
-            onChange={(e) => {
-              setSeverity(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">All Severities</option>
-            <option value="CRITICAL">Critical</option>
-            <option value="HIGH">High</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low</option>
-          </select>
+        <div className="triage-controls-row">
+          {/* Quick Severity Filter Tabs */}
+          <div className="tab-group">
+            <button
+              type="button"
+              className={`tab-btn ${!severity ? 'tab-btn-active' : ''}`}
+              onClick={() => {
+                setSeverity('');
+                setPage(1);
+              }}
+            >
+              All Severities
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${severity === 'CRITICAL' ? 'tab-btn-active' : ''}`}
+              onClick={() => {
+                setSeverity('CRITICAL');
+                setPage(1);
+              }}
+            >
+              Critical
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${severity === 'HIGH' ? 'tab-btn-active' : ''}`}
+              onClick={() => {
+                setSeverity('HIGH');
+                setPage(1);
+              }}
+            >
+              High
+            </button>
+            <button
+              type="button"
+              className={`tab-btn ${severity === 'MEDIUM' ? 'tab-btn-active' : ''}`}
+              onClick={() => {
+                setSeverity('MEDIUM');
+                setPage(1);
+              }}
+            >
+              Medium
+            </button>
+          </div>
 
+          {/* Status Dropdown */}
           <select
-            className="styled-select"
+            className="styled-select triage-status-select"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
@@ -204,15 +238,15 @@ export function AlertsPage() {
             }}
           >
             <option value="">All Statuses</option>
-            <option value="OPEN">Open</option>
+            <option value="OPEN">Open (Untriaged)</option>
             <option value="INVESTIGATING">Investigating</option>
             <option value="RESOLVED">Resolved</option>
-            <option value="DISMISSED">Dismissed</option>
+            <option value="DISMISSED">Dismissed (Benign)</option>
           </select>
 
           {(severity || status || searchInput) && (
             <button type="button" className="btn btn-secondary btn-sm" onClick={clearFilters}>
-              Clear Filters
+              Clear
             </button>
           )}
         </div>
@@ -221,18 +255,19 @@ export function AlertsPage() {
       {error && <ErrorAlert message={error} onRetry={fetchAlerts} />}
 
       {loading ? (
-        <LoadingSpinner message="Querying incident database..." />
+        <LoadingSpinner message="Querying security alert repository..." />
       ) : !data || data.items.length === 0 ? (
         <EmptyState
           icon={ShieldAlert}
-          title={severity || status || searchInput ? 'No Matching Incidents Found' : 'Incident Queue Empty'}
+          title={severity || status || searchInput ? 'No Incidents Match Current Filters' : 'Incident Queue Clear'}
           description={
             severity || status || searchInput
-              ? 'No security alerts match your selected filters.'
+              ? 'Try widening your severity or status parameters, or clear the search query.'
               : 'No alerts have been generated. Alerts are automatically triggered when hybrid threat scores or anomaly reconstruction errors exceed calibrated thresholds.'
           }
-          actionLabel={severity || status || searchInput ? 'Reset Filters' : 'Inspect Models'}
+          actionLabel={severity || status || searchInput ? 'Clear Filters' : 'View Detection Engines'}
           onAction={severity || status || searchInput ? clearFilters : () => navigate('/models')}
+          variant="compact"
         />
       ) : (
         <div className="card alerts-table-card">
@@ -241,14 +276,14 @@ export function AlertsPage() {
               <thead>
                 <tr>
                   <th>Severity</th>
-                  <th>Incident ID</th>
-                  <th>Entity ID</th>
-                  <th>Employee</th>
-                  <th>Reason</th>
+                  <th>Incident</th>
+                  <th>Target Entity</th>
+                  <th>Employee / Department</th>
+                  <th>Detection Reason</th>
                   <th>Risk Score</th>
-                  <th>Detected At</th>
+                  <th>Detected Timestamp</th>
                   <th>Status</th>
-                  <th>Triage</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -256,7 +291,7 @@ export function AlertsPage() {
                   <tr
                     key={alert.id}
                     className="clickable-row"
-                    onClick={() => openAlertModal(alert)}
+                    onClick={() => openAlertDrawer(alert)}
                   >
                     <td>
                       <span className={`badge ${getSeverityBadgeClass(alert.severity)}`}>
@@ -264,13 +299,28 @@ export function AlertsPage() {
                       </span>
                     </td>
                     <td className="font-mono text-muted">#{alert.id}</td>
-                    <td className="font-mono font-bold text-primary">{alert.user_id}</td>
-                    <td>{alert.employee_name || '—'}</td>
-                    <td className="cell-reason" title={alert.reason}>
+                    <td>
+                      <Link
+                        to={`/users/${alert.user_id}`}
+                        className="entity-link font-mono font-bold"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Jump to User Investigation"
+                      >
+                        <span>{alert.user_id}</span>
+                        <ExternalLink size={11} />
+                      </Link>
+                    </td>
+                    <td>
+                      <div className="emp-dept-cell">
+                        <span className="emp-name text-primary font-medium">{alert.employee_name || '—'}</span>
+                        <span className="emp-dept text-muted">{alert.department || '—'}</span>
+                      </div>
+                    </td>
+                    <td className="alert-reason-cell" title={alert.reason}>
                       {alert.reason}
                     </td>
                     <td className="font-mono font-bold">{formatRiskScore(alert.risk_score)}</td>
-                    <td className="text-muted">{formatDateTime(alert.detected_at)}</td>
+                    <td className="text-muted font-mono">{formatDateTime(alert.detected_at)}</td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(alert.status)}`}>
                         {alert.status}
@@ -282,10 +332,10 @@ export function AlertsPage() {
                         className="btn btn-secondary btn-sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          openAlertModal(alert);
+                          openAlertDrawer(alert);
                         }}
                       >
-                        Inspect
+                        Triage
                       </button>
                     </td>
                   </tr>
@@ -298,7 +348,7 @@ export function AlertsPage() {
           {data.total_pages > 1 && (
             <div className="pagination-bar">
               <span className="pagination-text text-muted font-mono">
-                Showing {((data.page - 1) * data.page_size) + 1} &ndash; {Math.min(data.page * data.page_size, data.total)} of {data.total} incidents
+                Showing {((data.page - 1) * data.page_size) + 1} &ndash; {Math.min(data.page * data.page_size, data.total)} of {data.total} alerts
               </span>
               <div className="pagination-controls">
                 <button
@@ -328,116 +378,120 @@ export function AlertsPage() {
         </div>
       )}
 
-      {/* Incident Dossier & Triage Modal */}
-      <Modal
+      {/* Slide-Over Investigation & Triage Drawer */}
+      <Drawer
         isOpen={Boolean(selectedAlert)}
-        onClose={closeAlertModal}
-        title={`Security Incident Dossier #${selectedAlert?.id}`}
-        maxWidth={660}
+        onClose={closeAlertDrawer}
+        title={`Incident #${selectedAlert?.id} Triage Dossier`}
+        subtitle={`Detected: ${formatDateTime(selectedAlert?.detected_at)}`}
+        width={560}
       >
         {selectedAlert && (
-          <div className="alert-modal-content">
-            <div className="modal-header-strip">
-              <div className="modal-badges">
-                <span className={`badge ${getSeverityBadgeClass(selectedAlert.severity)}`}>
-                  {selectedAlert.severity} Severity
-                </span>
-                <span className={`badge ${getStatusBadgeClass(selectedAlert.status)}`}>
-                  Status: {selectedAlert.status}
-                </span>
-              </div>
-              <span className="font-mono text-muted font-medium">
-                Detected: {formatDate(selectedAlert.date)}
+          <div className="triage-drawer-content">
+            {/* Header Badges */}
+            <div className="drawer-badge-strip">
+              <span className={`badge ${getSeverityBadgeClass(selectedAlert.severity)}`}>
+                {selectedAlert.severity} Severity
+              </span>
+              <span className={`badge ${getStatusBadgeClass(selectedAlert.status)}`}>
+                Status: {selectedAlert.status}
+              </span>
+              <span className="font-mono text-muted font-medium ml-auto">
+                Risk: {formatRiskScore(selectedAlert.risk_score)}/100
               </span>
             </div>
 
-            <h4 className="incident-title">{selectedAlert.reason}</h4>
+            <h4 className="drawer-incident-reason">{selectedAlert.reason}</h4>
 
-            {/* Target Entity Box */}
-            <div className="target-entity-box">
-              <div className="target-cell">
-                <span className="target-label">Target Entity</span>
+            {/* Entity Snapshot Card with Direct Jump */}
+            <div className="drawer-entity-card">
+              <div className="dec-header">
+                <span className="dec-title">TARGET ENTITY</span>
                 <Link
                   to={`/users/${selectedAlert.user_id}`}
-                  className="target-link font-mono"
-                  onClick={closeAlertModal}
+                  className="btn btn-primary btn-sm dec-investigate-btn"
+                  onClick={closeAlertDrawer}
                 >
-                  <span>{selectedAlert.user_id}</span>
-                  <ExternalLink size={12} />
+                  <span>Investigate User Dossier</span>
+                  <ArrowRight size={12} />
                 </Link>
               </div>
-              <div className="target-cell">
-                <span className="target-label">Employee</span>
-                <span className="target-val">{selectedAlert.employee_name || '—'}</span>
-              </div>
-              <div className="target-cell">
-                <span className="target-label">Department</span>
-                <span className="target-val">{selectedAlert.department || '—'}</span>
-              </div>
-              <div className="target-cell">
-                <span className="target-label">Threat Score</span>
-                <span className="target-val font-mono font-bold">
-                  {formatRiskScore(selectedAlert.risk_score)}/100
-                </span>
+              <div className="dec-grid">
+                <div className="dec-cell">
+                  <span className="dec-key">User ID:</span>
+                  <span className="dec-val font-mono font-bold text-teal">{selectedAlert.user_id}</span>
+                </div>
+                <div className="dec-cell">
+                  <span className="dec-key">Employee:</span>
+                  <span className="dec-val">{selectedAlert.employee_name || '—'}</span>
+                </div>
+                <div className="dec-cell">
+                  <span className="dec-key">Department:</span>
+                  <span className="dec-val">{selectedAlert.department || '—'}</span>
+                </div>
+                <div className="dec-cell">
+                  <span className="dec-key">Incident Date:</span>
+                  <span className="dec-val font-mono">{formatDate(selectedAlert.date)}</span>
+                </div>
               </div>
             </div>
 
-            {/* Telemetry Evidence JSON */}
+            {/* Evidence Telemetry JSON */}
             {selectedAlert.evidence && (
-              <div className="evidence-box">
-                <div className="evidence-header">
-                  <FileCode size={14} className="text-teal" />
-                  <span className="evidence-label">Detection Evidence & Trigger Traces</span>
+              <div className="drawer-evidence-block">
+                <div className="deb-header">
+                  <FileCode size={13} className="text-teal" />
+                  <span className="deb-title">Trigger Telemetry & Evidence Payload</span>
                 </div>
-                <pre className="evidence-code font-mono">
+                <pre className="deb-code font-mono">
                   {JSON.stringify(selectedAlert.evidence, null, 2)}
                 </pre>
               </div>
             )}
 
-            {/* Triage Update Form */}
-            <form onSubmit={handleUpdateStatus} className="triage-form">
-              <h5 className="triage-title">SOC Analyst Triage & Incident Resolution</h5>
+            {/* Triage Status Update Form */}
+            <form onSubmit={handleUpdateStatus} className="drawer-triage-form">
+              <h5 className="form-heading">SOC Incident Disposition</h5>
 
               {updateSuccess && (
-                <div className="form-feedback feedback-success">{updateSuccess}</div>
+                <div className="alert-feedback feedback-success">{updateSuccess}</div>
               )}
               {updateError && (
-                <div className="form-feedback feedback-error">{updateError}</div>
+                <div className="alert-feedback feedback-error">{updateError}</div>
               )}
 
-              <div className="form-row">
-                <label className="form-field-label">Investigation Disposition:</label>
+              <div className="form-field-group">
+                <label className="field-lbl">Disposition Status:</label>
                 <select
-                  className="form-field-select"
+                  className="field-sel"
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value)}
                 >
-                  <option value="OPEN">OPEN &bull; Awaiting Initial Triage</option>
-                  <option value="INVESTIGATING">INVESTIGATING &bull; In Active SOC Review</option>
-                  <option value="RESOLVED">RESOLVED &bull; Incident Remediated & Closed</option>
-                  <option value="DISMISSED">DISMISSED &bull; Benign / False Positive</option>
+                  <option value="OPEN">OPEN • Untriaged / In Queue</option>
+                  <option value="INVESTIGATING">INVESTIGATING • In Active SOC Review</option>
+                  <option value="RESOLVED">RESOLVED • Remediated & Closed</option>
+                  <option value="DISMISSED">DISMISSED • False Positive / Benign</option>
                 </select>
               </div>
 
-              <div className="form-row">
-                <label className="form-field-label">Analyst Case Notes:</label>
+              <div className="form-field-group">
+                <label className="field-lbl">SOC Investigation Notes:</label>
                 <textarea
-                  className="form-field-textarea"
+                  className="field-txt"
                   rows={3}
-                  placeholder="Record SOC rationale, remediation steps, or verification findings..."
+                  placeholder="Record SOC rationale, remediation actions, or verification findings..."
                   value={statusNotes}
                   onChange={(e) => setStatusNotes(e.target.value)}
                 />
               </div>
 
-              <div className="form-actions-row">
+              <div className="drawer-form-actions">
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  onClick={closeAlertModal}
+                  onClick={closeAlertDrawer}
                 >
-                  Close
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -445,13 +499,13 @@ export function AlertsPage() {
                   disabled={isUpdating}
                 >
                   <Save size={13} />
-                  <span>{isUpdating ? 'Saving...' : 'Persist Status Update'}</span>
+                  <span>{isUpdating ? 'Persisting...' : 'Persist Status'}</span>
                 </button>
               </div>
             </form>
           </div>
         )}
-      </Modal>
+      </Drawer>
     </div>
   );
 }

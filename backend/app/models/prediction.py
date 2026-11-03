@@ -20,6 +20,9 @@ class ModelPrediction(Base):
     # Contributing behavioral signals and explanation payload
     contributing_factors_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     model_version: Mapped[str] = mapped_column(String(32), default="v1.0.0")
+    # Per-component breakdown (status, normalised score, effective weight, points) and risk-config id
+    components_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    config_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     evaluated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 

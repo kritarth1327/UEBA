@@ -1,5 +1,5 @@
 from datetime import date, datetime, timezone
-from sqlalchemy import Integer, Float, Date, DateTime, String, ForeignKey, Text
+from sqlalchemy import Integer, Float, Date, DateTime, String, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
@@ -16,6 +16,9 @@ class Alert(Base):
     # OPEN, INVESTIGATING, RESOLVED, DISMISSED
     status: Mapped[str] = mapped_column(String(24), default="OPEN", index=True)
 
+    # Origin of the alert; one alert per (user, date, source) so re-scoring never duplicates
+    source: Mapped[str] = mapped_column(String(32), default="hybrid_risk", server_default="hybrid_risk", index=True)
+
     reason: Mapped[str] = mapped_column(String(255))
     risk_score: Mapped[float | None] = mapped_column(Float, nullable=True)
 
@@ -28,6 +31,10 @@ class Alert(Base):
         DateTime,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc)
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", "source", name="uq_alert_user_date_source"),
     )
 
     user = relationship("User", back_populates="alerts")
