@@ -56,7 +56,7 @@ class SystemService:
         # 2. Dataset check (CERT r4.2 raw files)
         dataset_status = "unavailable"
         dataset_msg = "CERT Insider Threat Dataset r4.2 not yet extracted to data/raw/r4.2/."
-        raw_r42_path = settings.RAW_DATA_DIR / "r4.2"
+        raw_r42_path = settings.CERT_R42_DIR
         expected_files = ["logon.csv", "device.csv", "file.csv", "email.csv", "http.csv"]
         found_files = []
         if raw_r42_path.exists():
@@ -71,21 +71,24 @@ class SystemService:
                 dataset_status = "partial"
                 dataset_msg = f"Partial dataset detected: {len(found_files)} of {len(expected_files)} files available."
 
+        spedia_file = settings.SPEDIA_FILE
         dataset_details = {
             "expected_directory": str(raw_r42_path),
             "expected_files": expected_files,
-            "files_found": found_files
+            "files_found": found_files,
+            # Second supported source (see docs/dataset_selection.md); CERT fields above are unchanged
+            "spedia": {"expected_file": spedia_file.name, "present": spedia_file.exists()},
         }
 
         # 3. Processing Pipeline check
         pipeline_status = "pending"
         pipeline_msg = "Ingestion pipeline awaiting dataset extraction."
-        if dataset_status == "ready":
-            pipeline_status = "ready"
-            pipeline_msg = "Ready to execute user-day profile ingestion."
-        elif db_details.get("persisted_profiles", 0) > 0:
+        if db_details.get("persisted_profiles", 0) > 0:
             pipeline_status = "processed"
             pipeline_msg = f"Profiles aggregated: {db_details.get('persisted_profiles')} daily records."
+        elif dataset_status == "ready" or spedia_file.exists():
+            pipeline_status = "ready"
+            pipeline_msg = "Ready to execute user-day profile ingestion."
 
         # 4. Model Artifact check
         models_ready = ml_threat_service.is_available() and ann_anomaly_service.is_available()

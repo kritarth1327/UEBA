@@ -1,6 +1,11 @@
 from app.schemas.user import UserBase, UserCreate, UserSummary, UserDetail, UserPagination
 from app.schemas.behavior import DailyBehaviorProfileRead, UserBehaviorResponse
-from app.schemas.baseline import PersonalBaselineRead, BaselineMetric, BaselineComparisonItem
+from app.schemas.baseline import (
+    PersonalBaselineRead,
+    UserBaselineResponse,
+    BaselineMetric,
+    BaselineComparisonItem,
+)
 from app.schemas.prediction import ModelPredictionRead, ContributingFactor, UserRiskHistoryResponse
 from app.schemas.alert import AlertBase, AlertCreate, AlertUpdate, AlertRead, AlertPagination
 from app.schemas.dashboard import DashboardOverviewResponse, SeverityCount, RiskDistribution
@@ -23,6 +28,7 @@ __all__ = [
     "DailyBehaviorProfileRead",
     "UserBehaviorResponse",
     "PersonalBaselineRead",
+    "UserBaselineResponse",
     "BaselineMetric",
     "BaselineComparisonItem",
     "ModelPredictionRead",

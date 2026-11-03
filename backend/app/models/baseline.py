@@ -14,6 +14,8 @@ class PersonalBaseline(Base):
     
     # Serialized JSON containing mean, stddev, median, IQR per behavioral metric
     metrics_json: Mapped[str] = mapped_column(Text)
+    # Config used (version, min samples, window, scale floor) + features without usable history
+    config_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     sample_size: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     calculated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

@@ -49,3 +49,16 @@ Execute the comprehensive test suite with:
 ```powershell
 python -m pytest tests/ -v
 ```
+
+## Pipeline (ingest -> baselines -> score)
+```bash
+cd backend
+python -m pip install -r requirements.txt
+python -m alembic upgrade head
+python scripts/audit_spedia.py /path/to/logs_SPEDIA_annotated_en.csv          # optional leakage/quality audit
+python scripts/run_pipeline.py all --dataset spedia --path /path/to/logs_SPEDIA_annotated_en.csv
+python -m pytest -q
+python -m uvicorn app.main:app --port 8000
+```
+Raw data stays out of Git (`data/raw/*` is ignored). To use the API ingest endpoint, place the file at `data/raw/spedia/` (or set `SPEDIA_FILE`).
+See `docs/dataset_selection.md`, `docs/integration_contracts.md`, `docs/baselines.md`, `docs/risk_engine.md`.
