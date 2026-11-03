@@ -45,7 +45,6 @@ pnpm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
-
 # Local Python environment
 .venv311/
 
@@ -60,5 +59,9 @@ backend/data/raw/*
 # Local timestamped backups
 *.backup_*
 
-# Generated CERT evaluation outputs and local model artifacts
+# Generated model artifacts
 backend/artifacts/
+
+# Environment variants
+.env.*
+!.env.example
