@@ -1,0 +1,49 @@
+{
+  "model_name": "dense_autoencoder",
+  "version": "1.0.0",
+  "architecture": [
+    10,
+    32,
+    16,
+    8,
+    16,
+    32,
+    10
+  ],
+  "features": [
+    "logon_count",
+    "after_hours_logons",
+    "file_copied_removable",
+    "email_count",
+    "email_external_count",
+    "email_attachment_count",
+    "http_request_count",
+    "http_after_hours_count",
+    "removable_device_events",
+    "total_session_duration"
+  ],
+  "preprocessing": {
+    "transformation": "numpy.log1p",
+    "scaler": "StandardScaler",
+    "scaler_fitted_on": "training split only"
+  },
+  "training": {
+    "seed": 42,
+    "epochs_completed": 40,
+    "best_validation_loss": 0.004898033104836941,
+    "training_profiles": 239737,
+    "validation_profiles": 45105,
+    "test_profiles": 45443,
+    "training_date_start": "2010-01-02",
+    "training_date_end": "2010-12-17",
+    "test_date_start": "2011-03-03",
+    "test_date_end": "2011-05-17"
+  },
+  "threshold_method": "99th percentile of validation reconstruction errors; not optimized against ground-truth labels",
+  "limitations": [
+    "The available processed profiles do not contain confirmed anomaly labels.",
+    "The early chronological training period is assumed to be predominantly normal; this assumption has not been verified against scenario ground truth.",
+    "The threshold is a statistical operating point, not proof of malicious activity.",
+    "Above-threshold profiles are anomaly candidates, not confirmed insider threats."
+  ]
+}

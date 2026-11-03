@@ -120,3 +120,52 @@
   font-size: 13px;
   line-height: 1.5;
 }
+
+.pipeline-flow-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.flow-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 8px 0 4px;
+}
+
+.flow-step-node {
+  background: var(--bg-surface-inset);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  min-width: 175px;
+  flex: 1;
+}
+
+.flow-step-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.flow-step-desc {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.flow-step-sub {
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.flow-arrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+

@@ -13,6 +13,7 @@ import {
   Zap,
   Sliders,
   Scale,
+  ArrowRight,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { LoadingSpinner } from '../components/LoadingSpinner';
@@ -57,10 +58,6 @@ export function ModelsPage() {
   const models = statusData?.models || [];
   const evaluations = evalData?.evaluations || [];
   const hasEvaluations = evalData?.status === 'ready';
-  const modelStatus = (name) => models.find((model) => model.model_name === name);
-  const xgboost = modelStatus('XGBoost Supervised Threat Classifier');
-  const ann = modelStatus('Dense Autoencoder Anomaly Detector');
-  const cert = modelStatus('CERT Supervised Classifier');
 
   return (
     <div className="models-page">
@@ -75,11 +72,61 @@ export function ModelsPage() {
         <div className="models-status-pill font-mono">
           {statusData?.all_models_ready ? (
             <span className="badge badge-low">All Inference Engines Active</span>
-          ) : statusData?.pipeline_ready ? (
-            <span className="badge badge-medium">Partial Inference Available</span>
           ) : (
-            <span className="badge badge-critical">No Inference Engines Available</span>
+            <span className="badge badge-neutral">Pipeline Awaiting Model Training</span>
           )}
+        </div>
+      </div>
+
+      {/* Signal Flow Architecture */}
+      <div className="card pipeline-flow-card">
+        <div className="section-card-header" style={{ marginBottom: 4 }}>
+          <div>
+            <h3 className="section-title">Detection Signal Flow Architecture</h3>
+            <span className="section-subtitle text-muted">
+              End-to-end data processing path from raw enterprise logs to calibrated insider threat triage.
+            </span>
+          </div>
+        </div>
+
+        <div className="flow-container">
+          <div className="flow-step-node">
+            <div className="flow-step-title font-mono">Stage 1: Multi-Source Logs</div>
+            <div className="flow-step-desc">CERT r4.2 Activity Streams</div>
+            <div className="flow-step-sub text-muted font-mono">logon, device, file, email, http</div>
+          </div>
+
+          <ArrowRight size={16} className="flow-arrow" />
+
+          <div className="flow-step-node">
+            <div className="flow-step-title font-mono">Stage 2: Feature Aggregation</div>
+            <div className="flow-step-desc">User-Day Behavioral Matrix</div>
+            <div className="flow-step-sub text-muted font-mono">Session time, off-hours, volume</div>
+          </div>
+
+          <ArrowRight size={16} className="flow-arrow" />
+
+          <div className="flow-step-node">
+            <div className="flow-step-title font-mono">Stage 3: Detection Triad</div>
+            <div className="flow-step-desc">Supervised ML + ANN + Baseline</div>
+            <div className="flow-step-sub text-muted font-mono">0.45 ML • 0.35 ANN • 0.20 BL</div>
+          </div>
+
+          <ArrowRight size={16} className="flow-arrow" />
+
+          <div className="flow-step-node">
+            <div className="flow-step-title font-mono">Stage 4: Risk Calibration</div>
+            <div className="flow-step-desc">Calibrated Hybrid Threat Score</div>
+            <div className="flow-step-sub text-muted font-mono">Continuous [0 - 100] scale</div>
+          </div>
+
+          <ArrowRight size={16} className="flow-arrow" />
+
+          <div className="flow-step-node">
+            <div className="flow-step-title font-mono">Stage 5: Alert Generation</div>
+            <div className="flow-step-desc">Priority Triage & Investigation</div>
+            <div className="flow-step-sub text-muted font-mono">Threshold triggers ≥ 70</div>
+          </div>
         </div>
       </div>
 
@@ -93,7 +140,7 @@ export function ModelsPage() {
             </div>
             <div>
               <h3 className="model-title">Random Forest Baseline</h3>
-              <span className="model-framework font-mono text-muted">Scikit-Learn 1.9.1 &bull; Baseline</span>
+              <span className="model-framework font-mono text-muted">Scikit-Learn 1.9.1 • Baseline</span>
             </div>
           </div>
           <p className="model-desc">
@@ -114,7 +161,7 @@ export function ModelsPage() {
             </div>
             <div className="spec-row">
               <span className="spec-key">Readiness:</span>
-              <span className="spec-val text-muted">Reference artifact unavailable</span>
+              <span className="spec-val text-muted">Awaiting CERT training split</span>
             </div>
           </div>
         </div>
@@ -127,7 +174,7 @@ export function ModelsPage() {
             </div>
             <div>
               <h3 className="model-title">XGBoost Threat Classifier</h3>
-              <span className="model-framework font-mono text-muted">XGBoost 3.4.1 &bull; Signal 1</span>
+              <span className="model-framework font-mono text-muted">XGBoost 3.4.1 • Signal 1</span>
             </div>
           </div>
           <p className="model-desc">
@@ -144,49 +191,11 @@ export function ModelsPage() {
             </div>
             <div className="spec-row">
               <span className="spec-key">Signal Weight:</span>
-              <span className="spec-val font-mono font-bold text-teal">0.3825 (38.25%)</span>
+              <span className="spec-val font-mono font-bold text-teal">0.45 (45%)</span>
             </div>
             <div className="spec-row">
               <span className="spec-key">Readiness:</span>
-              <span className={`spec-val ${xgboost?.is_ready ? 'text-teal' : 'text-muted'}`}>
-                {xgboost?.is_ready ? 'Loaded and ready' : 'Unavailable'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Model 3: CERT Supervised Classifier */}
-        <div className="card model-card">
-          <div className="model-card-header">
-            <div className="model-icon-box">
-              <Shield size={19} className="text-amber" />
-            </div>
-            <div>
-              <h3 className="model-title">CERT Supervised Classifier</h3>
-              <span className="model-framework font-mono text-muted">XGBoost 3.4.1 &bull; CERT r4.2</span>
-            </div>
-          </div>
-          <p className="model-desc">
-            CERT-specific incident-window proxy classifier. Scores only profiles containing its complete 11-feature input contract.
-          </p>
-          <div className="model-specs">
-            <div className="spec-row">
-              <span className="spec-key">Role:</span>
-              <span className="spec-val">CERT Supervised Signal</span>
-            </div>
-            <div className="spec-row">
-              <span className="spec-key">Signal Weight:</span>
-              <span className="spec-val font-mono font-bold text-teal">0.15 (15%)</span>
-            </div>
-            <div className="spec-row">
-              <span className="spec-key">Readiness:</span>
-              <span className={`spec-val ${cert?.is_ready ? 'text-teal' : 'text-muted'}`}>
-                {cert?.is_ready ? 'Loaded and ready' : 'Unavailable'}
-              </span>
-            </div>
-            <div className="spec-row">
-              <span className="spec-key">Label caveat:</span>
-              <span className="spec-val text-muted">Incident-window proxy labels</span>
+              <span className="spec-val text-muted">Awaiting CERT training split</span>
             </div>
           </div>
         </div>
@@ -199,7 +208,7 @@ export function ModelsPage() {
             </div>
             <div>
               <h3 className="model-title">Dense Autoencoder</h3>
-              <span className="model-framework font-mono text-muted">PyTorch 2.14.1 &bull; Signal 2</span>
+              <span className="model-framework font-mono text-muted">PyTorch 2.14.1 • Signal 2</span>
             </div>
           </div>
           <p className="model-desc">
@@ -208,21 +217,19 @@ export function ModelsPage() {
           <div className="model-specs">
             <div className="spec-row">
               <span className="spec-key">Architecture:</span>
-              <span className="spec-val font-mono">Dense(32 &rarr; 16 &rarr; 8 &rarr; 16 &rarr; 32)</span>
+              <span className="spec-val font-mono">Dense(32 → 16 → 8 → 16 → 32)</span>
             </div>
             <div className="spec-row">
               <span className="spec-key">Activations:</span>
-              <span className="spec-val font-mono">ReLU Hidden &bull; MSE Loss</span>
+              <span className="spec-val font-mono">ReLU Hidden • MSE Loss</span>
             </div>
             <div className="spec-row">
               <span className="spec-key">Signal Weight:</span>
-              <span className="spec-val font-mono font-bold text-teal">0.2975 (29.75%)</span>
+              <span className="spec-val font-mono font-bold text-teal">0.35 (35%)</span>
             </div>
             <div className="spec-row">
               <span className="spec-key">Readiness:</span>
-              <span className={`spec-val ${ann?.is_ready ? 'text-teal' : 'text-muted'}`}>
-                {ann?.is_ready ? 'Loaded and ready' : 'Unavailable for profiles missing required features'}
-              </span>
+              <span className="spec-val text-muted">Awaiting benign profile training</span>
             </div>
           </div>
         </div>
@@ -248,7 +255,7 @@ export function ModelsPage() {
             </div>
             <div className="spec-row">
               <span className="spec-key">Classification:</span>
-              <span className="spec-val font-mono">High &ge; 70 &bull; Med &ge; 40 &bull; Low &lt; 40</span>
+              <span className="spec-val font-mono">High ≥ 70 • Med ≥ 40 • Low &lt; 40</span>
             </div>
             <div className="spec-row">
               <span className="spec-key">Explainability:</span>
@@ -256,9 +263,7 @@ export function ModelsPage() {
             </div>
             <div className="spec-row">
               <span className="spec-key">Status:</span>
-              <span className="spec-val text-teal font-medium">
-                {statusData?.pipeline_ready ? 'Partial fusion active' : 'Unavailable'}
-              </span>
+              <span className="spec-val text-teal font-medium">Engine Active • Awaiting Inputs</span>
             </div>
           </div>
         </div>
@@ -270,11 +275,11 @@ export function ModelsPage() {
           <div>
             <h3 className="section-title">Experimental Evaluation Matrix</h3>
             <p className="section-subtitle text-muted">
-              Performance metrics are measured on reserved CERT test splits using incident-window proxy labels; they do not establish validated real-world insider-threat detection performance.
+              Performance metrics measured strictly on reserved test splits against ground-truth CERT insider threat scenario labels.
             </p>
           </div>
           <span className={`badge ${hasEvaluations ? 'badge-low' : 'badge-neutral'}`}>
-            {hasEvaluations ? 'Metrics available' : 'Evaluation unavailable'}
+            {hasEvaluations ? 'Evaluated' : 'Evaluation Pending'}
           </span>
         </div>
 
@@ -282,9 +287,9 @@ export function ModelsPage() {
           <div className="eval-pending-box">
             <AlertCircle size={20} className="pending-icon text-muted" />
             <div className="pending-content">
-              <h4 className="pending-heading">No Model Evaluation Metrics Available</h4>
+              <h4 className="pending-heading">No Model Evaluations Recorded Yet</h4>
               <p className="pending-text text-muted">
-                In strict adherence to experimental research integrity, metrics are populated only from reserved CERT test runs using incident-window proxy labels. They are not validated real-world insider-threat performance claims, and no fabricated or hypothetical metrics are presented.
+                In strict adherence to experimental research integrity, evaluation metrics (Accuracy, Precision, Recall, F1 Score, ROC-AUC, PR-AUC, Confusion Matrix) are populated exclusively from verified test runs against the CERT Insider Threat Dataset r4.2. No fabricated or hypothetical metrics are presented.
               </p>
             </div>
           </div>

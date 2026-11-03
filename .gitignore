@@ -60,5 +60,9 @@ backend/data/raw/*
 # Local timestamped backups
 *.backup_*
 
+# Environment variants
+.env.*
+!.env.example
+
 # Generated CERT evaluation outputs and local model artifacts
 backend/artifacts/
