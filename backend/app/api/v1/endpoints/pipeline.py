@@ -45,7 +45,8 @@ def ingest(req: IngestRequest, db: Session = Depends(get_db)):
         return report
     except IngestionError as e:
         code = status.HTTP_404_NOT_FOUND if "not found" in str(e) else status.HTTP_400_BAD_REQUEST
-        raise HTTPException(status_code=code, detail=str(e))
+        detail = "dataset source not found" if code == status.HTTP_404_NOT_FOUND else "invalid ingestion request"
+        raise HTTPException(status_code=code, detail=detail)
 
 
 @router.post("/pipeline/baselines/generate", response_model=BaselineGenerateResponse, summary="Generate and persist personal baselines")

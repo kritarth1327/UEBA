@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Iterator, Optional
 
 import pandas as pd
-
 from app.pipeline.adapters.base import (
     IngestStats,
     has_external_recipient,
@@ -80,7 +79,7 @@ class CertR42Adapter:
 
     def source_files(self, directory) -> list[Path]:
         """Return the expected source files that exist."""
-        root = Path(directory).expanduser().resolve()
+        root = self._validated_root(directory)
         return [
             self._safe_child(root, filename)
             for filename in FILES
@@ -94,7 +93,7 @@ class CertR42Adapter:
         stats: IngestStats,
     ) -> Iterator[pd.DataFrame]:
         """Read and normalise source CSVs incrementally."""
-        root = Path(directory).expanduser().resolve()
+        root = self._validated_root(directory)
         file_path = self._safe_child(root, "file.csv")
 
         # Determine availability before yielding any events.
@@ -139,6 +138,10 @@ class CertR42Adapter:
             raise ValueError("invalid CERT source file path")
 
         return path
+
+    @staticmethod
+    def _validated_root(directory) -> Path:
+        return Path(directory).expanduser().resolve()
 
     def _normalise(
         self,

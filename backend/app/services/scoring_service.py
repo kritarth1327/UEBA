@@ -94,7 +94,7 @@ class ScoringService:
             except Exception as exc:  # isolate one user's failure; roll back only that user
                 self.db.rollback()
                 logger.error(f"scoring failed for {uid}: {exc}", exc_info=True)
-                summary["errors"].append({"user_id": uid, "error": f"{type(exc).__name__}: {exc}"})
+                summary["errors"].append({"user_id": uid, "error": "scoring_failed"})
         return summary
 
     def _score_user(self, uid: str, start, end, summary) -> None:
