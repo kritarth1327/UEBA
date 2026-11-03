@@ -33,7 +33,15 @@ def ingest(req: IngestRequest, db: Session = Depends(get_db)):
             cert_file_is_removable_copy=req.cert_file_is_removable_copy,
         )
         if req.score_after_ingest:
-            report["scoring"] = ScoringService(db).score_range()
+            scoring = ScoringService(db).score_range()
+            errors = scoring.get("errors", [])
+            if errors:
+                scoring["error_count"] = len(errors)
+                scoring["errors"] = [
+                    {"user_id": item.get("user_id"), "error": "scoring_failed"}
+                    for item in errors
+                ]
+            report["scoring"] = scoring
         return report
     except IngestionError as e:
         code = status.HTTP_404_NOT_FOUND if "not found" in str(e) else status.HTTP_400_BAD_REQUEST

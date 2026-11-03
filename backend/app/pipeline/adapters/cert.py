@@ -80,11 +80,11 @@ class CertR42Adapter:
 
     def source_files(self, directory) -> list[Path]:
         """Return the expected source files that exist."""
-        root = Path(directory)
+        root = Path(directory).expanduser().resolve()
         return [
-            root / filename
+            self._safe_child(root, filename)
             for filename in FILES
-            if (root / filename).exists()
+            if self._safe_child(root, filename).exists()
         ]
 
     def iter_events(
@@ -94,8 +94,8 @@ class CertR42Adapter:
         stats: IngestStats,
     ) -> Iterator[pd.DataFrame]:
         """Read and normalise source CSVs incrementally."""
-        root = Path(directory)
-        file_path = root / "file.csv"
+        root = Path(directory).expanduser().resolve()
+        file_path = self._safe_child(root, "file.csv")
 
         # Determine availability before yielding any events.
         self._file_source_available = (
@@ -108,7 +108,7 @@ class CertR42Adapter:
             self.available.add("file_copied_removable")
 
         for filename in FILES:
-            path = root / filename
+            path = self._safe_child(root, filename)
 
             if not path.exists():
                 stats.missing_sources.append(filename)
@@ -130,6 +130,15 @@ class CertR42Adapter:
                 if events is not None and not events.empty:
                     stats.rows_accepted += len(events)
                     yield events
+
+    @staticmethod
+    def _safe_child(root: Path, filename: str) -> Path:
+        path = (root / filename).resolve()
+
+        if path.parent != root:
+            raise ValueError("invalid CERT source file path")
+
+        return path
 
     def _normalise(
         self,

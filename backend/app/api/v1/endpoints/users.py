@@ -85,7 +85,17 @@ def get_user_baseline(user_id: str, db: Session = Depends(get_db)):
         )
 
     baseline = BaselineService(db).get_user_baseline(user_id)
-    return {"has_baseline": baseline is not None, "baseline": baseline}
+    has_baseline = baseline is not None
+    return {
+        "user_id": user_id,
+        "has_baseline": has_baseline,
+        "baseline": baseline,
+        "message": (
+            "Baseline available."
+            if has_baseline
+            else "Personal baseline not yet calibrated for this user."
+        ),
+    }
 
 
 @router.get("/users/{user_id}/baseline/deviation", summary="Compare one observed day with its point-in-time baseline")
