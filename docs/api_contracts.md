@@ -52,7 +52,7 @@ Base URL: `/api/v1`
 ## Pipeline, baselines and risk (added)
 All JSON. Errors: 404 unknown user/file, 400 path outside raw dir/unsupported source, 422 validation.
 - `GET /features/schema` — shared feature contract.
-- `POST /pipeline/ingest` `{dataset:"spedia"|"cert_r42", path?, force?, cert_file_is_removable_copy?}` → ingestion report (rows read/accepted/rejected by reason, users, user_days, date_range, `unavailable_features`, `users_below_baseline_min_days`, label summary, `skipped` when the identical source+config was already ingested). `path` is relative to the raw data dir. Synchronous; use `scripts/run_pipeline.py` for very large inputs.
+- `POST /pipeline/ingest` `{dataset:"spedia"|"cert_r42", path?, force?, cert_file_is_removable_copy?}` → ingestion report (rows read/accepted/rejected by reason, users, user_days, date_range, `unavailable_features`, `users_below_baseline_min_days`, label summary, `skipped` when the identical source+config was already ingested). For CERT, `cert_file_is_removable_copy` defaults to `true` and derives the documented file-event proxy; set it to `false` when that interpretation is not valid. `path` is relative to the raw data dir. Synchronous; use `scripts/run_pipeline.py` for very large inputs.
 - `POST /pipeline/baselines/generate` `{user_id?, as_of?}` → `{results:[{user_id,status,persisted,sample_size,window_*,unusable_features}], persisted, skipped}`.
 - `GET /users/{user_id}/baseline` → `{has_baseline, baseline}` for the user's active persisted baseline.
 - `POST /pipeline/score` `{user_id?, start_date?, end_date?}` → `{users_processed, days_scored, days_without_signal, predictions_written, alerts_upserted, errors}`.

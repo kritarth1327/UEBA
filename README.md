@@ -1,11 +1,11 @@
 # Hybrid User and Entity Behavior Analytics (UEBA) System
 
-A security analytics platform for insider threat detection using machine learning, artificial neural network anomaly detection, and personalized behavioral baselines.
+A local-only security analytics demonstration using machine learning, artificial neural network anomaly detection, and personalized behavioral baselines.
 
 ## Overview
 
-This application aggregates enterprise activity logs (from the CERT Insider Threat Dataset r4.2) into user-day behavioral profiles. It evaluates risk through three complementary detection components:
-1. **Supervised Threat Classifier (XGBoost / Random Forest)**: Detects known threat patterns against ground truth labels.
+This application aggregates supported enterprise activity logs into user-day behavioral profiles. The demonstrated workflow uses SPEDIA; CERT r4.2 is supported separately for the CERT supervised model and related evaluation workflow. Risk is evaluated through complementary detection components:
+1. **Supervised Threat Classifier (XGBoost / Random Forest)**: Scores the general model's documented SPEDIA-derived target; it is not validated insider-threat probability.
 2. **Artificial Neural Network (Dense Autoencoder)**: Reconstructs normal activity; flags novel anomalies via reconstruction error.
 3. **Personalized Behavioral Baselines**: Quantifies individual deviation from each employee's historical norms.
 
@@ -45,7 +45,7 @@ ueba/
 │   ├── vite.config.js          # Vite build configuration
 │   └── .env.example            # Frontend environment template
 ├── data/
-│   ├── raw/                    # CERT dataset archives & CSVs (excluded from Git)
+│   ├── raw/                    # SPEDIA/CERT source files (excluded from Git)
 │   ├── processed/              # Aggregated behavioral features & splits
 │   └── README.md
 ├── docs/                       # Architecture, API contracts, and integration docs
@@ -96,9 +96,21 @@ ueba/
    ```
 5. Open `http://localhost:5173` in your browser.
 
+The backend development server binds to `127.0.0.1` and defaults to
+`LOCAL_ONLY=true`. This MVP has no authentication layer; do not expose it
+outside the local machine without adding authentication and deployment access
+controls.
+
 ## Running Tests
 - Backend tests:
   ```powershell
   cd backend
   python -m pytest tests/ -v
   ```
+
+The checked-in application does not include datasets, local databases, model
+artifacts, credentials, virtual environments, or generated audit dumps. The
+current local demonstration database contains SPEDIA provenance; ingestion
+reports preserve the source dataset and counts. The separate CERT supervised
+metrics use incident-window proxy labels and do not establish validated
+real-world insider-threat detection performance.

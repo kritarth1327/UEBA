@@ -28,11 +28,6 @@ class PersonalBaselineRead(BaseModel):
     config: Optional[Dict[str, Any]] = None
 
 
-class UserBaselineResponse(BaseModel):
-    has_baseline: bool
-    baseline: Optional[PersonalBaselineRead] = None
-
-
 class BaselineComparisonItem(BaseModel):
     metric_name: str
     observed_value: float
@@ -47,4 +42,3 @@ class UserBaselineResponse(BaseModel):
     has_baseline: bool
     baseline: Optional[PersonalBaselineRead] = None
     message: str
-

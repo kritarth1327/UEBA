@@ -52,6 +52,7 @@ def test_model_artifacts_unavailable(monkeypatch):
     from app.services.model_interfaces import ScoreResult
     from app.services.ml_threat_service import ml_threat_service
     from app.services.ann_anomaly_service import ann_anomaly_service
+    from app.services.spedia_ann_anomaly_service import spedia_ann_anomaly_service
 
     monkeypatch.setattr(
         ml_threat_service,
@@ -74,6 +75,18 @@ def test_model_artifacts_unavailable(monkeypatch):
     )
     monkeypatch.setattr(
         ann_anomaly_service,
+        "is_available",
+        lambda: False,
+    )
+    monkeypatch.setattr(
+        spedia_ann_anomaly_service,
+        "score",
+        lambda features: ScoreResult.unavailable(
+            "SPEDIA ANN model disabled for deterministic tests"
+        ),
+    )
+    monkeypatch.setattr(
+        spedia_ann_anomaly_service,
         "is_available",
         lambda: False,
     )

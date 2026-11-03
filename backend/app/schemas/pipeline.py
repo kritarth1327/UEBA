@@ -8,7 +8,17 @@ class IngestRequest(BaseModel):
     dataset: Literal["spedia", "cert_r42"]
     path: Optional[str] = Field(None, description="File/dir relative to the raw data directory; defaults to configured location")
     force: bool = Field(False, description="Re-ingest even if this exact source+configuration was already ingested")
-    cert_file_is_removable_copy: bool = Field(False, description="CERT only: treat file.csv rows as removable-media copies (verify first)")
+    cert_file_is_removable_copy: bool = Field(
+        True,
+        description=(
+            "CERT only: derive the documented file-copy proxy from file.csv "
+            "rows; set false only when that source interpretation is not valid"
+        ),
+    )
+    score_after_ingest: bool = Field(
+        False,
+        description="After ingestion, score persisted profiles and upsert alerts in the same workflow.",
+    )
 
 
 class IngestionReport(BaseModel):
@@ -33,6 +43,7 @@ class IngestionReport(BaseModel):
     users_below_baseline_min_days: List[str] = []
     label_summary: Optional[Dict[str, int]] = None
     users_with_only_labelled_anomalous_events: List[str] = []
+    scoring: Optional[Dict[str, Any]] = None
 
 
 class BaselineGenerateRequest(BaseModel):

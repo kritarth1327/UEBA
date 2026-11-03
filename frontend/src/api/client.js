@@ -92,6 +92,24 @@ export const api = {
     request(`/users/${encodeURIComponent(userId)}/risk`, { params, signal }),
   getUserBaseline: (userId, signal) =>
     request(`/users/${encodeURIComponent(userId)}/baseline`, { signal }),
+  getUserBaselineDeviation: (userId, date, signal) =>
+    request(`/users/${encodeURIComponent(userId)}/baseline/deviation`, {
+      params: { on: date },
+      signal,
+    }),
+  getRiskConfig: (signal) => request('/risk/config', { signal }),
+  ingestPipeline: (data, signal) =>
+    request('/pipeline/ingest', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+    }),
+  scorePipeline: (data = {}, signal) =>
+    request('/pipeline/score', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      signal,
+    }),
 
   // ANN Anomaly Detection
   getUserAnomalies: (userId, params, signal) =>

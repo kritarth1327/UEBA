@@ -79,7 +79,7 @@ export function SystemPage() {
         <div>
           <h1 className="page-title">System Infrastructure & Dataset Diagnostics</h1>
           <p className="page-subtitle">
-            Operational status of FastAPI backend, database persistence, CERT r4.2 raw log files, and detection pipeline.
+            Operational status of the FastAPI backend, database persistence, supported dataset sources, and detection pipeline.
           </p>
         </div>
 
@@ -131,7 +131,7 @@ export function SystemPage() {
                 <div className="spec-row">
                   <span className="spec-key">Python Environment:</span>
                   <span className="spec-val font-mono">
-                    {systemData.backend_status?.details?.python_version || '3.14.7'}
+                    {systemData.backend_status?.details?.python_version || 'Unknown'}
                   </span>
                 </div>
                 <div className="spec-row">
@@ -177,30 +177,32 @@ export function SystemPage() {
               </div>
             </div>
 
-            {/* 3. CERT r4.2 Raw Logs */}
+            {/* 3. Supported Dataset Sources */}
             <div className="card component-card">
               <div className="component-top">
                 <div className="comp-title-group">
                   <FileSpreadsheet size={17} className="text-amber" />
-                  <span className="comp-name">CERT r4.2 Raw Logs</span>
+                  <span className="comp-name">Supported Dataset Sources</span>
                 </div>
                 {getStatusBadge(systemData.dataset_status?.status)}
               </div>
               <p className="comp-desc text-muted">{systemData.dataset_status?.message}</p>
               <div className="comp-specs">
                 <div className="spec-row">
-                  <span className="spec-key">Target Path:</span>
-                  <span className="spec-val font-mono path-text">data/raw/r4.2/</span>
+                  <span className="spec-key">Active Datasets:</span>
+                  <span className="spec-val font-mono">
+                    {systemData.dataset_status?.details?.active_datasets?.join(', ') || 'None'}
+                  </span>
                 </div>
                 <div className="spec-row">
-                  <span className="spec-key">Core Files Found:</span>
+                  <span className="spec-key">CERT Core Files Found:</span>
                   <span className="spec-val font-mono">
                     {systemData.dataset_status?.details?.files_found?.length || 0} /{' '}
                     {systemData.dataset_status?.details?.expected_files?.length || 5}
                   </span>
                 </div>
                 <div className="spec-row">
-                  <span className="spec-key">Required:</span>
+                  <span className="spec-key">CERT Required:</span>
                   <span className="spec-val text-muted">logon, device, file, email, http</span>
                 </div>
               </div>
@@ -252,7 +254,13 @@ export function SystemPage() {
                 <div className="spec-row">
                   <span className="spec-key">Dense Autoencoder:</span>
                   <span className="spec-val">
-                    {systemData.model_status?.details?.autoencoder_available ? 'Loaded' : 'Pending Weights'}
+                    {systemData.model_status?.details?.autoencoder_available ? 'Loaded' : 'Unavailable for profiles missing required features'}
+                  </span>
+                </div>
+                <div className="spec-row">
+                  <span className="spec-key">CERT Supervised:</span>
+                  <span className="spec-val">
+                    {systemData.model_status?.details?.cert_supervised_available ? 'Loaded' : 'Unavailable'}
                   </span>
                 </div>
                 <div className="spec-row">
@@ -265,9 +273,9 @@ export function SystemPage() {
 
           {/* Actionable Pipeline Guide */}
           <div className="card guide-card">
-            <h3 className="section-title">CERT r4.2 Data Pipeline Integration Protocol</h3>
+            <h3 className="section-title">Dataset Integration Protocol</h3>
             <p className="section-subtitle text-muted">
-              Execution steps once the CERT Insider Threat Dataset r4.2 download finishes:
+              Use the supported ingestion workflow for SPEDIA or CERT r4.2. Dataset files are not included in the repository:
             </p>
 
             <div className="protocol-steps">

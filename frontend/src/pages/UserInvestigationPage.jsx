@@ -100,7 +100,7 @@ export function UserInvestigationPage() {
       setBehavior(bRes);
       setRiskData(rRes);
       setAlerts(aRes?.items || []);
-<<      // Store the backend personal baseline response.
+      // Store the backend personal baseline response.
       setBaselineData(blRes);
 
       // Fetch ANN scores independently so ANN failures don't break

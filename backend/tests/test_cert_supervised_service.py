@@ -44,7 +44,7 @@ def test_missing_feature_returns_error():
 
     result = service.score(features)
 
-    assert result.status == ScoreStatus.ERROR
+    assert result.status == ScoreStatus.UNAVAILABLE
     assert "email_count" in result.detail
 
 
@@ -55,3 +55,45 @@ def test_unavailable_model_returns_unavailable():
     result = service.score(valid_features())
 
     assert result.status == ScoreStatus.UNAVAILABLE
+
+
+def test_repository_cert_artifact_is_available_and_uses_training_order():
+    service = CERTSupervisedService()
+
+    assert service.model_path.is_file()
+    assert service.is_available()
+    assert service.metadata["metrics"]["xgboost"]["features"] == service.FEATURE_NAMES
+
+
+def test_ann_missing_duration_uses_explicit_zero_policy():
+    from app.services.ann_anomaly_service import ANNAnomalyService
+
+    service = ANNAnomalyService(
+        error_fn=lambda values: 0.1,
+        meta={
+            "schema_version": "1.0.0",
+            "feature_names": [
+                "logon_count",
+                "after_hours_logons",
+                "file_copied_removable",
+                "email_count",
+                "email_external_count",
+                "email_attachment_count",
+                "http_request_count",
+                "http_after_hours_count",
+                "removable_device_events",
+                "total_session_duration",
+            ],
+            "threshold": 0.2,
+        },
+    )
+
+    result = service.score(valid_features())
+
+    assert result.status == ScoreStatus.OK
+
+    features = valid_features()
+    features.pop("email_count")
+    result = service.score(features)
+    assert result.status == ScoreStatus.UNAVAILABLE
+    assert "email_count" in result.detail

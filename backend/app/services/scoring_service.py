@@ -1,3 +1,4 @@
+
 """Scores persisted user-day profiles with the hybrid engine; persists predictions and alerts."""
 from __future__ import annotations
 
@@ -14,19 +15,46 @@ from app.models.behavior import DailyBehaviorProfile
 from app.models.prediction import ModelPrediction
 from app.services.baseline_service import BaselineService
 from app.services.hybrid_risk_service import HybridRiskService, hybrid_risk_service
-from app.services.model_interfaces import Scorer
+from app.services.model_interfaces import ScoreResult, Scorer
+from app.services.cert_supervised_service import cert_supervised_service
+from app.services.ann_anomaly_service import ann_anomaly_service
+from app.services.spedia_ann_anomaly_service import spedia_ann_anomaly_service
+from app.pipeline.schema import CERT_R42, SPEDIA
 from app.services.profile_store import features_of, list_user_ids_with_profiles, load_user_history
 
 ALERT_SOURCE = "hybrid_risk"
 
 
+class _UnavailableANNScorer:
+    name = "ann_anomaly"
+    model_name = "dataset_ann_unavailable"
+
+    def __init__(self, dataset: str):
+        self.version = "unavailable"
+        self.dataset = dataset
+
+    def score(self, features) -> ScoreResult:
+        return ScoreResult.unavailable(
+            f"No ANN model is configured for dataset '{self.dataset}'.",
+            self.version,
+        )
+
+
 class ScoringService:
-    def __init__(self, db: Session, engine: Optional[HybridRiskService] = None,
-                 ml_scorer: Optional[Scorer] = None, ann_scorer: Optional[Scorer] = None):
+    def __init__(
+        self,
+        db: Session,
+        engine: Optional[HybridRiskService] = None,
+        ml_scorer: Optional[Scorer] = None,
+        ann_scorer: Optional[Scorer] = None,
+        cert_scorer: Optional[Scorer] = None,
+    ):
         self.db = db
         self.engine = engine or hybrid_risk_service
         self.baselines = BaselineService(db)
         self.ml, self.ann = ml_scorer, ann_scorer
+        self._cert_ann = ann_anomaly_service
+        self.cert = cert_scorer or cert_supervised_service
 
     # ---- ad hoc (nothing persisted) ---------------------------------------------------------
     def assess_features(self, user_id: str, on: date, features: Dict[str, Optional[float]]) -> Optional[Dict[str, Any]]:
@@ -35,12 +63,22 @@ class ScoringService:
             base.get("status") != "ok"
             and self.ml is None
             and self.ann is None
+            and not self.cert.is_available()
         ):
             return None
-        result = self.engine.assess(features, base, self.ml, self.ann)
+        result = self.engine.assess(features, base, self.ml, self.ann, self.cert)
         if result is not None:
             result["baseline"] = {k: base.get(k) for k in ("status", "baseline_source", "aggregate_score", "sample_size")}
         return result
+
+    def _ann_for_dataset(self, dataset: Optional[str]) -> Scorer:
+        if self.ann is not None:
+            return self.ann
+        if dataset == SPEDIA:
+            return spedia_ann_anomaly_service
+        if dataset in (None, CERT_R42):
+            return self._cert_ann
+        return _UnavailableANNScorer(dataset)
 
     # ---- batch (persisted) ----------------------------------------------------------------------
     def score_range(self, user_id: Optional[str] = None, start: Optional[date] = None,
@@ -56,7 +94,7 @@ class ScoringService:
             except Exception as exc:  # isolate one user's failure; roll back only that user
                 self.db.rollback()
                 logger.error(f"scoring failed for {uid}: {exc}", exc_info=True)
-                summary["errors"].append({"user_id": uid, "error": f"{type(exc).__name__}: {exc}"})
+                summary["errors"].append({"user_id": uid, "error": "scoring_failed"})
         return summary
 
     def _score_user(self, uid: str, start, end, summary) -> None:
@@ -68,24 +106,37 @@ class ScoringService:
             q = q.where(DailyBehaviorProfile.date <= end)
         for prof in self.db.scalars(q.order_by(DailyBehaviorProfile.date)).all():
             feats = features_of(prof)
+            selected_ann = self._ann_for_dataset(prof.dataset_source)
             base = self.baselines.evaluate(uid, prof.date, feats, history)
             if (
                 base.get("status") != "ok"
                 and self.ml is None
-                and self.ann is None
+                and not self._scorer_available(selected_ann)
+                and not self.cert.is_available()
             ):
                 summary["days_scored"] += 1
                 summary["days_without_signal"] += 1
                 continue
-            res = self.engine.assess(feats, base, self.ml, self.ann)
+            res = self.engine.assess(feats, base, self.ml, selected_ann, self.cert)
             summary["days_scored"] += 1
             if res is None:
                 summary["days_without_signal"] += 1
                 continue
+            ann_component = self._comp(res, "ann_anomaly")
+            if ann_component is not None:
+                ann_component["dataset_source"] = prof.dataset_source
+                ann_component["model_name"] = getattr(
+                    selected_ann, "model_name", getattr(selected_ann, "name", None)
+                )
             self._save_prediction(uid, prof.date, res, base)
             summary["predictions_written"] += 1
             if self._upsert_alert(uid, prof.date, res):
                 summary["alerts_upserted"] += 1
+
+    @staticmethod
+    def _scorer_available(scorer: Scorer) -> bool:
+        checker = getattr(scorer, "is_available", None)
+        return True if checker is None else bool(checker())
 
     def _comp(self, res, name) -> Optional[Dict[str, Any]]:
         return next((c for c in res["components"] if c["name"] == name), None)

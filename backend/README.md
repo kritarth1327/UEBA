@@ -43,6 +43,11 @@ backend/
    ```
 4. Access the interactive API docs at `http://127.0.0.1:8000/docs`.
 
+The default `LOCAL_ONLY=true` setting rejects non-local client connections. This
+MVP has no authentication layer; do not set `LOCAL_ONLY=false` or expose the
+service through a network boundary without adding authentication and access
+controls.
+
 ## Running Tests
 
 Execute the comprehensive test suite with:
@@ -62,3 +67,53 @@ python -m uvicorn app.main:app --port 8000
 ```
 Raw data stays out of Git (`data/raw/*` is ignored). To use the API ingest endpoint, place the file at `data/raw/spedia/` (or set `SPEDIA_FILE`).
 See `docs/dataset_selection.md`, `docs/integration_contracts.md`, `docs/baselines.md`, `docs/risk_engine.md`.
+
+The API can run ingestion, scoring, prediction persistence, and alert upserts in
+one explicit operation by sending `"score_after_ingest": true` to
+`POST /api/v1/pipeline/ingest`. The default remains `false` for compatibility.
+For CERT profiles, unavailable `total_session_duration` is preserved as
+unavailable in the stored feature payload but is explicitly zero-filled at the
+ANN scoring boundary before `log1p` and the saved scaler. Other missing or
+non-finite ANN features remain errors. This zero policy is a candidate
+assumption, not a claim about historical training.
+
+### Reproducible ANN candidate training
+
+The missing historical ANN training program is not reproduced. The replacement
+trainer matches the production dense-autoencoder architecture and feature order,
+uses chronological splits, fits `log1p` and `StandardScaler` on training rows
+only, early-stops on validation loss, and calibrates the threshold from the
+validation 99th percentile only. `total_session_duration` is unavailable in the
+CERT feature table, so training requires an explicit policy; historical handling
+is unknown. Candidate outputs are written under `backend/ann_candidates/`, never
+to `backend/artifacts/`.
+
+For example, after dependencies are installed:
+
+```powershell
+python backend/scripts/train_dense_autoencoder.py --total-session-duration-policy zero
+```
+
+### Experimental SPEDIA ANN training
+
+The isolated SPEDIA trainer reads already-persisted `spedia` user-day profiles
+from `backend/ueba.db`; it does not re-ingest the raw CSV and does not touch the
+CERT ANN artifacts. It selects annotation-clean rows
+(`anomalous_event_count == 0`) only for unsupervised training, uses the fixed
+14-feature SPEDIA contract, chronological splits, training-only
+`log1p`/`StandardScaler` fitting, and validation-only threshold calibration.
+The output is written to `backend/artifacts/spedia_dense_autoencoder/` and is
+experimental rather than validated insider-threat detection.
+
+```powershell
+cd backend
+python scripts/train_spedia_autoencoder.py `
+  --database ueba.db `
+  --output-dir artifacts/spedia_dense_autoencoder
+```
+
+The demonstrated local workflow uses `logs_SPEDIA_annotated_en.csv`, which
+produces 13 normalized users and 181 user-day profiles in the included local
+demonstration database. The separate CERT supervised model is trained and
+evaluated from CERT r4.2 data using incident-window proxy labels. Those metrics
+do not establish validated real-world insider-threat detection performance.

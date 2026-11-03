@@ -13,6 +13,8 @@ from app.services.ann_anomaly_service import ann_anomaly_service, FEATURES
 from app.services.behavior_service import BehaviorService
 from app.services.baseline_service import BaselineService
 from app.repositories.prediction_repository import PredictionRepository
+from app.services.profile_store import features_of, load_user_history
+from app.repositories.behavior_repository import BehaviorRepository
 
 router = APIRouter()
 
@@ -83,7 +85,51 @@ def get_user_baseline(user_id: str, db: Session = Depends(get_db)):
         )
 
     baseline = BaselineService(db).get_user_baseline(user_id)
-    return {"has_baseline": baseline is not None, "baseline": baseline}
+    has_baseline = baseline is not None
+    return {
+        "user_id": user_id,
+        "has_baseline": has_baseline,
+        "baseline": baseline,
+        "message": (
+            "Baseline available."
+            if has_baseline
+            else "Personal baseline not yet calibrated for this user."
+        ),
+    }
+
+
+@router.get("/users/{user_id}/baseline/deviation", summary="Compare one observed day with its point-in-time baseline")
+def get_user_baseline_deviation(
+    user_id: str,
+    on: date = Query(..., description="Observed date to compare against prior history"),
+    db: Session = Depends(get_db),
+):
+    if not UserService(db).get_user_detail(user_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with identifier '{user_id}' was not found."
+        )
+
+    profile = BehaviorRepository(db).get_by_user_and_date(user_id, on)
+    if not profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No behavioral profile was found for '{user_id}' on {on}."
+        )
+
+    features = features_of(profile)
+    result = BaselineService(db).evaluate(
+        user_id,
+        on,
+        features,
+        load_user_history(db, user_id),
+    )
+    return {
+        "user_id": user_id,
+        "date": on,
+        "observed": features,
+        **result,
+    }
 
 
 @router.get("/users/{user_id}/risk", response_model=UserRiskHistoryResponse, summary="Get user risk assessment history")

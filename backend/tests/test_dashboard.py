@@ -1,6 +1,7 @@
 from datetime import date
 from app.models.user import User
 from app.models.alert import Alert
+from app.models.behavior import DailyBehaviorProfile
 from app.models.prediction import ModelPrediction
 
 
@@ -28,6 +29,13 @@ def test_dashboard_with_persisted_records(client, db_session):
     )
     db_session.add(user)
     db_session.commit()
+
+    db_session.add(DailyBehaviorProfile(
+        user_id="ACM2278",
+        date=date(2026, 3, 15),
+        dataset_source="spedia",
+        event_count=4,
+    ))
 
     pred = ModelPrediction(
         user_id="ACM2278",

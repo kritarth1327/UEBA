@@ -1,9 +1,7 @@
-import json
-from datetime import date
+from datetime import date, timedelta
 from app.models.user import User
 from app.models.behavior import DailyBehaviorProfile
 from app.models.prediction import ModelPrediction
-from app.models.baseline import PersonalBaseline
 
 
 def test_users_empty(client):
@@ -110,40 +108,25 @@ def test_user_behavior_and_risk(client, db_session):
     assert r_data["summary"]["max_risk_score"] == 76.4
 
 
-def test_user_baseline_endpoint(client, db_session):
-    user = User(user_id="BL_TEST01", employee_name="Baseline Target")
-    db_session.add(user)
+def test_point_in_time_baseline_deviation_endpoint(client, db_session):
+    db_session.add(User(user_id="ACM2278", employee_name="Alice Smith"))
+    for i in range(15):
+        db_session.add(DailyBehaviorProfile(
+            user_id="ACM2278",
+            date=date(2026, 3, 1) + timedelta(days=i),
+            logon_count=i + 1,
+            after_hours_logons=0,
+            removable_device_events=0,
+            email_external_count=0,
+        ))
     db_session.commit()
 
-    # Empty baseline test
-    res = client.get("/api/v1/users/BL_TEST01/baseline")
-    assert res.status_code == 200
-    data = res.json()
-    assert data["user_id"] == "BL_TEST01"
-    assert data["has_baseline"] is False
-    assert data["baseline"] is None
-    assert "not yet calibrated" in data["message"].lower()
+    response = client.get("/api/v1/users/ACM2278/baseline/deviation?on=2026-03-15")
 
-    # Add active baseline
-    metrics = {
-        "logon_count": {"mean": 2.5, "std": 0.8},
-        "removable_device_events": {"mean": 0.1, "std": 0.3}
-    }
-    baseline = PersonalBaseline(
-        user_id="BL_TEST01",
-        window_start=date(2026, 1, 1),
-        window_end=date(2026, 1, 30),
-        metrics_json=json.dumps(metrics),
-        sample_size=30,
-        is_active=True
-    )
-    db_session.add(baseline)
-    db_session.commit()
-
-    res_active = client.get("/api/v1/users/BL_TEST01/baseline")
-    assert res_active.status_code == 200
-    data_active = res_active.json()
-    assert data_active["has_baseline"] is True
-    assert data_active["baseline"]["sample_size"] == 30
-    assert data_active["baseline"]["metrics"]["logon_count"]["mean"] == 2.5
-
+    assert response.status_code == 200
+    data = response.json()
+    assert data["date"] == "2026-03-15"
+    assert data["status"] == "ok"
+    logons = next(item for item in data["features"] if item["feature"] == "logon_count")
+    assert logons["observed"] == 15
+    assert logons["z_score"] > 0

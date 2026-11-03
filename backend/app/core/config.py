@@ -12,10 +12,17 @@ else:
     load_dotenv()
 
 
+def _configured_path(name: str, default: Path) -> Path:
+    value = os.getenv(name)
+    path = Path(value) if value else default
+    return path if path.is_absolute() else BASE_DIR / path
+
+
 class Settings:
     PROJECT_NAME: str = os.getenv("PROJECT_NAME", "UEBA Threat Detection API")
     API_V1_PREFIX: str = os.getenv("API_V1_PREFIX", "/api/v1")
-    DEBUG: bool = os.getenv("DEBUG", "true").lower() in ("true", "1", "yes")
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
+    LOCAL_ONLY: bool = os.getenv("LOCAL_ONLY", "true").lower() in ("true", "1", "yes")
 
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./ueba.db")
 
@@ -28,16 +35,26 @@ class Settings:
 
     # Paths
     BASE_DIR: Path = BASE_DIR
-    DATA_DIR: Path = Path(os.getenv("DATA_DIR", str(BASE_DIR.parent / "data")))
-    RAW_DATA_DIR: Path = Path(os.getenv("RAW_DATA_DIR", str(BASE_DIR.parent / "data" / "raw")))
-    PROCESSED_DATA_DIR: Path = Path(os.getenv("PROCESSED_DATA_DIR", str(BASE_DIR.parent / "data" / "processed")))
-    MODELS_DIR: Path = Path(os.getenv("MODELS_DIR", str(BASE_DIR / "artifacts")))
+    DATA_DIR: Path = _configured_path(
+        "DATA_DIR", BASE_DIR.parent / "data"
+    )
+    RAW_DATA_DIR: Path = _configured_path(
+        "RAW_DATA_DIR", BASE_DIR.parent / "data" / "raw"
+    )
+    PROCESSED_DATA_DIR: Path = _configured_path(
+        "PROCESSED_DATA_DIR", BASE_DIR.parent / "data" / "processed"
+    )
+    MODELS_DIR: Path = _configured_path("MODELS_DIR", BASE_DIR / "artifacts")
 
     # Dataset locations (never committed; see data/README.md)
-    SPEDIA_FILE: Path = Path(os.getenv(
-        "SPEDIA_FILE", str(BASE_DIR.parent / "data" / "raw" / "spedia" / "logs_SPEDIA_annotated_en.csv")
-    ))
-    CERT_R42_DIR: Path = Path(os.getenv("CERT_R42_DIR", str(BASE_DIR.parent / "data" / "raw" / "r4.2")))
+    SPEDIA_FILE: Path = _configured_path(
+        "SPEDIA_FILE",
+        BASE_DIR.parent / "data" / "raw" / "spedia"
+        / "logs_SPEDIA_annotated_en.csv",
+    )
+    CERT_R42_DIR: Path = _configured_path(
+        "CERT_R42_DIR", BASE_DIR.parent / "data" / "raw" / "r4.2"
+    )
 
     # Ingestion
     INGEST_CHUNK_SIZE: int = int(os.getenv("INGEST_CHUNK_SIZE", "50000"))
